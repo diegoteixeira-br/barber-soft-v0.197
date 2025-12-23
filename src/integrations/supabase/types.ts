@@ -14,16 +14,191 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          barber_id: string | null
+          client_name: string
+          client_phone: string | null
+          created_at: string
+          end_time: string
+          id: string
+          notes: string | null
+          service_id: string | null
+          start_time: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          total_price: number
+          unit_id: string
+        }
+        Insert: {
+          barber_id?: string | null
+          client_name: string
+          client_phone?: string | null
+          created_at?: string
+          end_time: string
+          id?: string
+          notes?: string | null
+          service_id?: string | null
+          start_time: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          total_price: number
+          unit_id: string
+        }
+        Update: {
+          barber_id?: string | null
+          client_name?: string
+          client_phone?: string | null
+          created_at?: string
+          end_time?: string
+          id?: string
+          notes?: string | null
+          service_id?: string | null
+          start_time?: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          total_price?: number
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_barber_id_fkey"
+            columns: ["barber_id"]
+            isOneToOne: false
+            referencedRelation: "barbers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      barbers: {
+        Row: {
+          calendar_color: string | null
+          commission_rate: number | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          phone: string | null
+          photo_url: string | null
+          unit_id: string
+        }
+        Insert: {
+          calendar_color?: string | null
+          commission_rate?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone?: string | null
+          photo_url?: string | null
+          unit_id: string
+        }
+        Update: {
+          calendar_color?: string | null
+          commission_rate?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone?: string | null
+          photo_url?: string | null
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "barbers_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          id: string
+          is_active: boolean | null
+          name: string
+          price: number
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price: number
+          unit_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price?: number
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      units: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      user_owns_unit: { Args: { unit_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      appointment_status: "pending" | "confirmed" | "completed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +325,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      appointment_status: ["pending", "confirmed", "completed", "cancelled"],
+    },
   },
 } as const
