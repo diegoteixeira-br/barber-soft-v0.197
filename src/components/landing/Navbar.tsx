@@ -70,8 +70,8 @@ export function Navbar() {
             <Button variant="outline" asChild>
               <Link to="/auth">Entrar</Link>
             </Button>
-            <Button className="bg-gold hover:bg-gold/90 text-black font-semibold glow-gold">
-              Testar Grátis
+            <Button className="bg-gold hover:bg-gold/90 text-black font-semibold glow-gold" asChild>
+              <Link to="/auth?tab=signup">Testar Grátis</Link>
             </Button>
           </div>
 
@@ -114,8 +114,8 @@ export function Navbar() {
                 <Button variant="outline" asChild className="w-full">
                   <Link to="/auth">Entrar</Link>
                 </Button>
-                <Button className="w-full bg-gold hover:bg-gold/90 text-black font-semibold">
-                  Testar Grátis
+                <Button className="w-full bg-gold hover:bg-gold/90 text-black font-semibold" asChild>
+                  <Link to="/auth?tab=signup">Testar Grátis</Link>
                 </Button>
               </div>
             </div>

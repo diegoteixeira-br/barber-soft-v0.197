@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Scissors, Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,12 @@ const passwordSchema = z.string().min(6, "Senha deve ter no mínimo 6 caracteres
 
 export default function Auth() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  
+  const defaultTab = searchParams.get("tab") === "signup" ? "signup" : "login";
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -169,7 +172,7 @@ export default function Auth() {
         </div>
 
         <Card className="border-border bg-card">
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs defaultValue={defaultTab} className="w-full">
             <CardHeader className="pb-4">
               <TabsList className="grid w-full grid-cols-2 bg-secondary">
                 <TabsTrigger value="login" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">

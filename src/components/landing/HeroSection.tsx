@@ -38,7 +38,7 @@ export function HeroSection() {
               <Button
                 size="lg"
                 className="bg-gold hover:bg-gold/90 text-black font-bold text-lg px-8 py-6 glow-gold animate-pulse-subtle group"
-                onClick={() => navigate("/auth")}
+                onClick={() => navigate("/auth?tab=signup")}
               >
                 Testar Grátis Agora
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
