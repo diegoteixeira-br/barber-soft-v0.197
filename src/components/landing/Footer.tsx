@@ -3,27 +3,26 @@ import { Link } from "react-router-dom";
 
 const footerLinks = {
   produto: [
-    { name: "Funcionalidades", href: "#funcionalidades" },
-    { name: "Preços", href: "#precos" },
-    { name: "Integrações", href: "#" },
-    { name: "API", href: "#" },
+    { name: "Funcionalidades", href: "#funcionalidades", isExternal: true },
+    { name: "Preços", href: "#precos", isExternal: true },
+    { name: "API", href: "/api", isExternal: false },
   ],
   empresa: [
-    { name: "Sobre nós", href: "#" },
-    { name: "Blog", href: "#" },
-    { name: "Carreiras", href: "#" },
-    { name: "Contato", href: "#" },
+    { name: "Sobre nós", href: "/sobre", isExternal: false },
+    { name: "Blog", href: "/blog", isExternal: false },
+    { name: "Carreiras", href: "/carreiras", isExternal: false },
+    { name: "Contato", href: "/contato", isExternal: false },
   ],
   suporte: [
-    { name: "Central de Ajuda", href: "#" },
-    { name: "Documentação", href: "#" },
-    { name: "Status", href: "#" },
-    { name: "WhatsApp", href: "#" },
+    { name: "Central de Ajuda", href: "/ajuda", isExternal: false },
+    { name: "Documentação", href: "/documentacao", isExternal: false },
+    { name: "Status", href: "/status", isExternal: false },
+    { name: "WhatsApp", href: "/whatsapp", isExternal: false },
   ],
   legal: [
-    { name: "Privacidade", href: "#" },
-    { name: "Termos de Uso", href: "#" },
-    { name: "LGPD", href: "#" },
+    { name: "Privacidade", href: "/privacidade", isExternal: false },
+    { name: "Termos de Uso", href: "/termos", isExternal: false },
+    { name: "LGPD", href: "/lgpd", isExternal: false },
   ],
 };
 
@@ -66,6 +65,33 @@ const socialLinks = [
   },
 ];
 
+type FooterLink = {
+  name: string;
+  href: string;
+  isExternal: boolean;
+};
+
+const FooterLinkItem = ({ link }: { link: FooterLink }) => {
+  if (link.isExternal || link.href.startsWith('#')) {
+    return (
+      <a
+        href={link.href}
+        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {link.name}
+      </a>
+    );
+  }
+  return (
+    <Link
+      to={link.href}
+      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {link.name}
+    </Link>
+  );
+};
+
 export function Footer() {
   return (
     <footer className="bg-charcoal border-t border-border/30 py-16">
@@ -104,12 +130,7 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.produto.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLinkItem link={link} />
                 </li>
               ))}
             </ul>
@@ -120,12 +141,7 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.empresa.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLinkItem link={link} />
                 </li>
               ))}
             </ul>
@@ -136,12 +152,7 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.suporte.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLinkItem link={link} />
                 </li>
               ))}
             </ul>
@@ -152,12 +163,7 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.legal.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLinkItem link={link} />
                 </li>
               ))}
             </ul>
