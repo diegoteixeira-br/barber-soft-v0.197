@@ -136,9 +136,9 @@ export function AutomationsTab() {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="birthday-message">Mensagem de Parabéns</Label>
-            <Textarea
+          <Textarea
               id="birthday-message"
-              placeholder="Olá {{nome}}! Feliz aniversário! 🎂"
+              placeholder="Olá {{nome}}! 🎂 Feliz aniversário! A equipe deseja um dia incrível pra você. Venha comemorar conosco! 🎉 Caso não queira receber esses mimos por aqui, digite SAIR."
               value={birthdayMessage}
               onChange={(e) => setBirthdayMessage(e.target.value)}
               className="mt-2 min-h-[100px]"
@@ -192,9 +192,9 @@ export function AutomationsTab() {
 
           <div>
             <Label htmlFor="rescue-message">Mensagem de Resgate</Label>
-            <Textarea
+          <Textarea
               id="rescue-message"
-              placeholder="Olá {{nome}}! Sentimos sua falta..."
+              placeholder="Olá {{nome}}! Sentimos sua falta! 💈 Já faz um tempo desde sua última visita. Bora dar aquele tapa no visual? Mas ó, se preferir não receber esses toques, é só mandar SAIR. Sem stress, a amizade continua! 🤜"
               value={rescueMessage}
               onChange={(e) => setRescueMessage(e.target.value)}
               className="mt-2 min-h-[100px]"
