@@ -18,7 +18,10 @@ export function CalendarEvent({ appointment, onClick, compact = false }: Calenda
   if (compact) {
     return (
       <button
-        onClick={onClick}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
         className={cn(
           "w-full text-left px-1.5 py-0.5 rounded text-xs truncate transition-all hover:opacity-80",
           isCancelled && "opacity-50 line-through"
@@ -36,7 +39,10 @@ export function CalendarEvent({ appointment, onClick, compact = false }: Calenda
 
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       className={cn(
         "w-full text-left p-2 rounded-md transition-all hover:scale-[1.02] hover:shadow-lg group",
         isCancelled && "opacity-60"
