@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { format, setHours, setMinutes, isToday } from "date-fns";
+import { format, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarEvent } from "./CalendarEvent";
+import { useCurrentTime } from "@/hooks/useCurrentTime";
 import type { Appointment } from "@/hooks/useAppointments";
 import type { Barber } from "@/hooks/useBarbers";
 
@@ -12,9 +13,13 @@ interface CalendarDayViewProps {
   selectedBarberId: string | null;
   onAppointmentClick: (appointment: Appointment) => void;
   onSlotClick: (date: Date, barberId?: string) => void;
+  openingTime?: string;
+  closingTime?: string;
+  timezone?: string;
 }
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7:00 to 20:00
+const HOUR_HEIGHT = 96; // h-24 = 6rem = 96px
 
 export function CalendarDayView({
   currentDate,
@@ -23,11 +28,21 @@ export function CalendarDayView({
   selectedBarberId,
   onAppointmentClick,
   onSlotClick,
+  openingTime,
+  closingTime,
+  timezone,
 }: CalendarDayViewProps) {
   const activeBarbers = useMemo(
     () => barbers.filter(b => b.is_active && (!selectedBarberId || b.id === selectedBarberId)),
     [barbers, selectedBarberId]
   );
+
+  const { hour: currentHour, minute: currentMinute, isToday } = useCurrentTime(timezone);
+  const today = isToday(currentDate);
+
+  // Parse opening and closing hours
+  const openingHour = openingTime ? parseInt(openingTime.split(":")[0], 10) : 7;
+  const closingHour = closingTime ? parseInt(closingTime.split(":")[0], 10) : 21;
 
   const appointmentsByBarberAndHour = useMemo(() => {
     const map: Record<string, Record<number, Appointment[]>> = {};
@@ -50,7 +65,13 @@ export function CalendarDayView({
     return map;
   }, [appointments, activeBarbers]);
 
-  const today = isToday(currentDate);
+  // Calculate current time indicator position
+  const showTimeIndicator = today && currentHour >= 7 && currentHour < 21;
+  const timeIndicatorPosition = (currentHour - 7) * HOUR_HEIGHT + (currentMinute / 60) * HOUR_HEIGHT;
+
+  const isWithinBusinessHours = (hour: number) => {
+    return hour >= openingHour && hour < closingHour;
+  };
 
   return (
     <div className="flex-1 overflow-auto">
@@ -77,13 +98,28 @@ export function CalendarDayView({
         </div>
 
         {/* Time slots */}
-        <div className="grid" style={{ gridTemplateColumns: `80px repeat(${activeBarbers.length}, 1fr)` }}>
+        <div className="grid relative" style={{ gridTemplateColumns: `80px repeat(${activeBarbers.length}, 1fr)` }}>
+          {/* Current time indicator - spans across all columns */}
+          {showTimeIndicator && (
+            <div
+              className="absolute left-0 right-0 z-20 pointer-events-none"
+              style={{ top: `${timeIndicatorPosition}px` }}
+            >
+              <div className="relative flex items-center">
+                <div className="absolute left-[68px] w-3 h-3 bg-red-500 rounded-full shadow-sm" />
+                <div className="ml-[80px] flex-1 h-0.5 bg-red-500" />
+              </div>
+            </div>
+          )}
+
           {/* Time column */}
           <div className="border-r border-border">
             {HOURS.map(hour => (
               <div
                 key={hour}
-                className="h-24 border-b border-border flex items-start justify-end pr-2 pt-1"
+                className={`h-24 border-b border-border flex items-start justify-end pr-2 pt-1 ${
+                  isWithinBusinessHours(hour) ? "bg-blue-100/40 dark:bg-blue-900/20" : ""
+                }`}
               >
                 <span className="text-sm text-muted-foreground">
                   {String(hour).padStart(2, "0")}:00
@@ -98,13 +134,16 @@ export function CalendarDayView({
               {HOURS.map(hour => {
                 const slotAppointments = appointmentsByBarberAndHour[barber.id]?.[hour] || [];
                 const slotDate = setMinutes(setHours(currentDate, hour), 0);
+                const withinHours = isWithinBusinessHours(hour);
 
                 return (
                   <div
                     key={hour}
                     className={`h-24 border-b border-border p-1 cursor-pointer hover:bg-muted/30 transition-colors ${
-                      today ? "bg-primary/5" : ""
-                    }`}
+                      withinHours 
+                        ? "bg-blue-100/40 dark:bg-blue-900/20" 
+                        : ""
+                    } ${today && withinHours ? "bg-blue-100/50 dark:bg-blue-900/30" : ""}`}
                     onClick={() => onSlotClick(slotDate, barber.id)}
                   >
                     <div className="space-y-1 overflow-hidden h-full">

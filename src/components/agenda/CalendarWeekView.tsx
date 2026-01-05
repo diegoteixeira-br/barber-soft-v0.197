@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isToday, setHours, setMinutes } from "date-fns";
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarEvent } from "./CalendarEvent";
+import { useCurrentTime } from "@/hooks/useCurrentTime";
 import type { Appointment } from "@/hooks/useAppointments";
 
 interface CalendarWeekViewProps {
@@ -9,14 +10,32 @@ interface CalendarWeekViewProps {
   appointments: Appointment[];
   onAppointmentClick: (appointment: Appointment) => void;
   onSlotClick: (date: Date) => void;
+  openingTime?: string;
+  closingTime?: string;
+  timezone?: string;
 }
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7:00 to 20:00
+const HOUR_HEIGHT = 80; // h-20 = 5rem = 80px
 
-export function CalendarWeekView({ currentDate, appointments, onAppointmentClick, onSlotClick }: CalendarWeekViewProps) {
+export function CalendarWeekView({ 
+  currentDate, 
+  appointments, 
+  onAppointmentClick, 
+  onSlotClick,
+  openingTime,
+  closingTime,
+  timezone,
+}: CalendarWeekViewProps) {
   const weekStart = startOfWeek(currentDate, { locale: ptBR });
   const weekEnd = endOfWeek(currentDate, { locale: ptBR });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  
+  const { hour: currentHour, minute: currentMinute, isToday } = useCurrentTime(timezone);
+
+  // Parse opening and closing hours
+  const openingHour = openingTime ? parseInt(openingTime.split(":")[0], 10) : 7;
+  const closingHour = closingTime ? parseInt(closingTime.split(":")[0], 10) : 21;
 
   const appointmentsByDayAndHour = useMemo(() => {
     const map: Record<string, Record<number, Appointment[]>> = {};
@@ -41,6 +60,14 @@ export function CalendarWeekView({ currentDate, appointments, onAppointmentClick
 
     return map;
   }, [appointments, days]);
+
+  // Calculate current time indicator position
+  const showTimeIndicator = currentHour >= 7 && currentHour < 21;
+  const timeIndicatorPosition = (currentHour - 7) * HOUR_HEIGHT + (currentMinute / 60) * HOUR_HEIGHT;
+
+  const isWithinBusinessHours = (hour: number) => {
+    return hour >= openingHour && hour < closingHour;
+  };
 
   return (
     <div className="flex-1 overflow-auto">
@@ -68,13 +95,15 @@ export function CalendarWeekView({ currentDate, appointments, onAppointmentClick
         </div>
 
         {/* Time slots */}
-        <div className="grid grid-cols-8">
+        <div className="grid grid-cols-8 relative">
           {/* Time column */}
           <div className="border-r border-border">
             {HOURS.map(hour => (
               <div
                 key={hour}
-                className="h-20 border-b border-border p-1 text-xs text-muted-foreground text-right pr-2"
+                className={`h-20 border-b border-border p-1 text-xs text-muted-foreground text-right pr-2 ${
+                  isWithinBusinessHours(hour) ? "bg-blue-100/40 dark:bg-blue-900/20" : ""
+                }`}
               >
                 {String(hour).padStart(2, "0")}:00
               </div>
@@ -82,20 +111,38 @@ export function CalendarWeekView({ currentDate, appointments, onAppointmentClick
           </div>
 
           {/* Day columns */}
-          {days.map(day => {
+          {days.map((day, dayIndex) => {
             const dayKey = format(day, "yyyy-MM-dd");
+            const isDayToday = isToday(day);
+            
             return (
-              <div key={day.toISOString()} className="border-r border-border last:border-r-0">
+              <div key={day.toISOString()} className="border-r border-border last:border-r-0 relative">
+                {/* Current time indicator - only on today's column */}
+                {isDayToday && showTimeIndicator && (
+                  <div
+                    className="absolute left-0 right-0 z-20 pointer-events-none"
+                    style={{ top: `${timeIndicatorPosition}px` }}
+                  >
+                    <div className="relative flex items-center">
+                      <div className="absolute -left-1.5 w-3 h-3 bg-red-500 rounded-full shadow-sm" />
+                      <div className="w-full h-0.5 bg-red-500" />
+                    </div>
+                  </div>
+                )}
+                
                 {HOURS.map(hour => {
                   const slotAppointments = appointmentsByDayAndHour[dayKey]?.[hour] || [];
                   const slotDate = setMinutes(setHours(day, hour), 0);
+                  const withinHours = isWithinBusinessHours(hour);
 
                   return (
                     <div
                       key={hour}
                       className={`h-20 border-b border-border p-0.5 cursor-pointer hover:bg-muted/30 transition-colors ${
-                        isToday(day) ? "bg-primary/5" : ""
-                      }`}
+                        withinHours 
+                          ? "bg-blue-100/40 dark:bg-blue-900/20" 
+                          : ""
+                      } ${isDayToday && withinHours ? "bg-blue-100/50 dark:bg-blue-900/30" : ""}`}
                       onClick={() => onSlotClick(slotDate)}
                     >
                       <div className="space-y-0.5 overflow-hidden h-full">

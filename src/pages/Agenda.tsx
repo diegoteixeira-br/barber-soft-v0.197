@@ -15,6 +15,8 @@ import { useBarbers } from "@/hooks/useBarbers";
 import { useServices } from "@/hooks/useServices";
 import { useCurrentUnit } from "@/contexts/UnitContext";
 import { useAppointmentNotification } from "@/hooks/useAppointmentNotification";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { useUnits } from "@/hooks/useUnits";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, History, CheckCircle2, XCircle } from "lucide-react";
@@ -59,6 +61,14 @@ export default function Agenda() {
 
   const { barbers, isLoading: barbersLoading } = useBarbers(currentUnitId);
   const { services, isLoading: servicesLoading } = useServices(currentUnitId);
+  const { settings: businessSettings } = useBusinessSettings();
+  const { units } = useUnits();
+  
+  // Get current unit's timezone
+  const currentUnit = useMemo(() => {
+    return units?.find(u => u.id === currentUnitId);
+  }, [units, currentUnitId]);
+  
   const { 
     appointments: allAppointments, 
     isLoading: appointmentsLoading,
@@ -200,6 +210,9 @@ export default function Agenda() {
                     appointments={appointments}
                     onAppointmentClick={handleAppointmentClick}
                     onSlotClick={handleSlotClick}
+                    openingTime={businessSettings?.opening_time || undefined}
+                    closingTime={businessSettings?.closing_time || undefined}
+                    timezone={currentUnit?.timezone || undefined}
                   />
                 )}
                 {view === "day" && (
@@ -210,6 +223,9 @@ export default function Agenda() {
                     selectedBarberId={selectedBarberId}
                     onAppointmentClick={handleAppointmentClick}
                     onSlotClick={handleSlotClick}
+                    openingTime={businessSettings?.opening_time || undefined}
+                    closingTime={businessSettings?.closing_time || undefined}
+                    timezone={currentUnit?.timezone || undefined}
                   />
                 )}
                 {view === "month" && (
