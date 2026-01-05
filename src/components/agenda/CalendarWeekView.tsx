@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useRef, useLayoutEffect } from "react";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarEvent } from "./CalendarEvent";
@@ -17,7 +17,8 @@ interface CalendarWeekViewProps {
 }
 
 const DEFAULT_HOUR_HEIGHT = 80;
-const MIN_HOUR_HEIGHT = 40;
+const MIN_HOUR_HEIGHT = 32;
+const HEADER_HEIGHT = 56;
 
 export function CalendarWeekView({ 
   currentDate, 
@@ -49,29 +50,33 @@ export function CalendarWeekView({
 
   // Calculate dynamic height for compact mode
   const [containerHeight, setContainerHeight] = useState(0);
-  const containerRef = useCallback((node: HTMLDivElement | null) => {
-    if (node) {
-      const updateHeight = () => setContainerHeight(node.clientHeight);
-      updateHeight();
-      const observer = new ResizeObserver(updateHeight);
-      observer.observe(node);
-      return () => observer.disconnect();
-    }
-  }, []);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const container = document.querySelector('[data-calendar-container]');
-      if (container) setContainerHeight(container.clientHeight);
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    
+    const updateHeight = () => {
+      if (containerRef.current) {
+        setContainerHeight(containerRef.current.clientHeight);
+      }
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(containerRef.current);
+    
+    return () => observer.disconnect();
   }, []);
 
-  const headerHeight = 56;
   const hourHeight = useMemo(() => {
     if (!isCompactMode) return DEFAULT_HOUR_HEIGHT;
-    const availableHeight = containerHeight - headerHeight;
+    
+    // Use viewport fallback if container height is not yet measured
+    const effectiveHeight = containerHeight > 0 
+      ? containerHeight 
+      : window.innerHeight - 220;
+    
+    const availableHeight = effectiveHeight - HEADER_HEIGHT;
     const calculatedHeight = Math.floor(availableHeight / HOURS.length);
     return Math.max(MIN_HOUR_HEIGHT, calculatedHeight);
   }, [isCompactMode, containerHeight, HOURS.length]);
@@ -118,7 +123,7 @@ export function CalendarWeekView({
     >
       <div className="min-w-[800px] h-full flex flex-col">
         {/* Header with days */}
-        <div className="grid grid-cols-8 border-b border-border sticky top-0 bg-card z-10 shrink-0" style={{ height: headerHeight }}>
+        <div className="grid grid-cols-8 border-b border-border sticky top-0 bg-card z-10 shrink-0" style={{ height: HEADER_HEIGHT }}>
           <div className="p-2 text-center text-xs text-muted-foreground border-r border-border flex items-center justify-center">
             Horário
           </div>
