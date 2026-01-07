@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Search, Users, Cake, Clock, Plus, Building2, Loader2 } from "lucide-react";
+import { Search, Users, Cake, Clock, Plus, Building2, Loader2, BellOff } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -147,6 +147,10 @@ export default function Clientes() {
               <TabsTrigger value="inactive" className="gap-2">
                 <Clock className="h-4 w-4" />
                 <span className="hidden sm:inline">Inativos</span>
+              </TabsTrigger>
+              <TabsTrigger value="opted_out" className="gap-2">
+                <BellOff className="h-4 w-4" />
+                <span className="hidden sm:inline">Descadastrados</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>

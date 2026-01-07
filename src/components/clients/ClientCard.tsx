@@ -1,4 +1,4 @@
-import { Phone, Calendar, Clock, Edit2, Trash2, Building2 } from "lucide-react";
+import { Phone, Calendar, Clock, Edit2, Trash2, Building2, BellOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,9 +100,18 @@ export function ClientCard({ client, onEdit, onDelete, showUnit = false }: Clien
           </div>
         </div>
 
-        {client.tags && client.tags.length > 0 && (
+        {(client.marketing_opt_out || (client.tags && client.tags.length > 0)) && (
           <div className="mt-3 flex flex-wrap gap-1">
-            {client.tags.map((tag) => (
+            {client.marketing_opt_out && (
+              <Badge
+                variant="outline"
+                className="bg-destructive/20 text-destructive border-destructive/30 gap-1"
+              >
+                <BellOff className="h-3 w-3" />
+                Descadastrado
+              </Badge>
+            )}
+            {client.tags?.map((tag) => (
               <Badge
                 key={tag}
                 variant="outline"

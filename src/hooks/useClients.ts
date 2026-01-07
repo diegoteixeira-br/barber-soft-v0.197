@@ -17,6 +17,8 @@ export interface Client {
   created_at: string;
   updated_at: string;
   unit_name?: string;
+  marketing_opt_out: boolean | null;
+  opted_out_at: string | null;
 }
 
 export type CreateClientData = {
@@ -28,7 +30,7 @@ export type CreateClientData = {
   unit_id?: string;
 };
 
-export type ClientFilter = "all" | "birthday_month" | "inactive";
+export type ClientFilter = "all" | "birthday_month" | "inactive" | "opted_out";
 
 interface UseClientsOptions {
   filter?: ClientFilter;
@@ -96,6 +98,8 @@ export function useClients(filterOrOptions: ClientFilter | UseClientsOptions = "
           if (!client.last_visit_at) return true;
           return new Date(client.last_visit_at) < thirtyDaysAgo;
         });
+      } else if (filter === "opted_out") {
+        clients = clients.filter((client) => client.marketing_opt_out === true);
       }
 
       return clients;
