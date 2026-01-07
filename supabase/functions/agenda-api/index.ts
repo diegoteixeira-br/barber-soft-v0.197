@@ -203,6 +203,64 @@ async function handleCheck(supabase: any, body: any, corsHeaders: any) {
 
   console.log(`Checking availability for date: ${date}, professional: ${professional || 'any'}, unit: ${unit_id}, timezone: ${timezone}`);
 
+  // Buscar user_id da unidade para obter configurações de expediente
+  const { data: unitData, error: unitError } = await supabase
+    .from('units')
+    .select('user_id')
+    .eq('id', unit_id)
+    .single();
+
+  if (unitError) {
+    console.error('Error fetching unit:', unitError);
+  }
+
+  // Buscar horário de expediente configurado
+  let openingHour = 8;  // default
+  let closingHour = 21; // default
+
+  if (unitData?.user_id) {
+    const { data: settings, error: settingsError } = await supabase
+      .from('business_settings')
+      .select('opening_time, closing_time')
+      .eq('user_id', unitData.user_id)
+      .maybeSingle();
+
+    if (settingsError) {
+      console.error('Error fetching business settings:', settingsError);
+    }
+
+    if (settings) {
+      if (settings.opening_time) {
+        openingHour = parseInt(settings.opening_time.split(':')[0]);
+      }
+      if (settings.closing_time) {
+        closingHour = parseInt(settings.closing_time.split(':')[0]);
+      }
+      console.log(`Using configured hours: ${openingHour}:00 - ${closingHour}:00`);
+    }
+  }
+
+  // Calcular hora atual no timezone da unidade
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(now);
+  const todayDate = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
+  const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const currentMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+
+  const dateOnly = date.split('T')[0];
+  const isToday = dateOnly === todayDate;
+
+  console.log(`Today in timezone ${timezone}: ${todayDate}, current time: ${currentHour}:${currentMinute}, requested date: ${dateOnly}, isToday: ${isToday}`);
+
   // Buscar barbeiros ativos da unidade
   let barbersQuery = supabase
     .from('barbers')
@@ -266,14 +324,18 @@ async function handleCheck(supabase: any, body: any, corsHeaders: any) {
 
   console.log(`Found ${appointments?.length || 0} existing appointments`);
 
-  // Gerar slots disponíveis (08:00 às 21:00, intervalos de 30 min)
+  // Gerar slots disponíveis (usando horário de expediente configurado)
   const availableSlots: any[] = [];
-  const openingHour = 8;
-  const closingHour = 21;
-  const dateOnly = date.split('T')[0];
 
   for (let hour = openingHour; hour < closingHour; hour++) {
     for (let minute = 0; minute < 60; minute += 30) {
+      // Filtrar horários passados se for hoje
+      if (isToday) {
+        if (hour < currentHour || (hour === currentHour && minute <= currentMinute)) {
+          continue; // Pula este slot pois já passou
+        }
+      }
+
       const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
       const slotLocalStr = `${dateOnly}T${timeStr}:00`;
       const slotStart = convertLocalToUTC(slotLocalStr, timezone);
