@@ -5,6 +5,7 @@ import { ChatSimulation } from "./ChatSimulation";
 import { DashboardPreview } from "./DashboardPreview";
 import { DemoTourModal } from "./DemoTourModal";
 import { useNavigate } from "react-router-dom";
+import heroVideo from "@/assets/hero-barbershop-video.mp4";
 
 export function HeroSection() {
   const navigate = useNavigate();
@@ -20,10 +21,9 @@ export function HeroSection() {
           muted
           playsInline
           className="w-full h-full object-cover"
-          poster="https://images.pexels.com/videos/7697186/pexels-photo-7697186.jpeg?auto=compress&cs=tinysrgb&w=1920"
         >
           <source 
-            src="https://videos.pexels.com/video-files/7697186/7697186-uhd_2560_1440_30fps.mp4" 
+            src={heroVideo} 
             type="video/mp4" 
           />
         </video>
