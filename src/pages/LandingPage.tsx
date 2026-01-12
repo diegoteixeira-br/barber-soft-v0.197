@@ -11,7 +11,7 @@ import { SEOHead } from "@/components/seo/SEOHead";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <SEOHead 
         title="Sistema de Gestão para Barbearias"
         description="Gestão completa da sua barbearia. Agenda, financeiro, comissões, clientes e marketing integrado com WhatsApp. Teste grátis!"
