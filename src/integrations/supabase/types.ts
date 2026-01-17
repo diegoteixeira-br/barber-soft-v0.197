@@ -170,6 +170,9 @@ export type Database = {
           id: string
           invite_token: string | null
           is_active: boolean | null
+          lunch_break_enabled: boolean | null
+          lunch_break_end: string | null
+          lunch_break_start: string | null
           name: string
           phone: string | null
           photo_url: string | null
@@ -187,6 +190,9 @@ export type Database = {
           id?: string
           invite_token?: string | null
           is_active?: boolean | null
+          lunch_break_enabled?: boolean | null
+          lunch_break_end?: string | null
+          lunch_break_start?: string | null
           name: string
           phone?: string | null
           photo_url?: string | null
@@ -204,6 +210,9 @@ export type Database = {
           id?: string
           invite_token?: string | null
           is_active?: boolean | null
+          lunch_break_enabled?: boolean | null
+          lunch_break_end?: string | null
+          lunch_break_start?: string | null
           name?: string
           phone?: string | null
           photo_url?: string | null
@@ -1108,6 +1117,9 @@ export type Database = {
           id: string
           invite_token: string | null
           is_active: boolean | null
+          lunch_break_enabled: boolean | null
+          lunch_break_end: string | null
+          lunch_break_start: string | null
           name: string
           phone: string | null
           photo_url: string | null

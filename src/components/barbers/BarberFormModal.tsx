@@ -22,7 +22,7 @@ import { Slider } from "@/components/ui/slider";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { User, Building2, CreditCard } from "lucide-react";
+import { User, Building2, CreditCard, Clock } from "lucide-react";
 import { Barber } from "@/hooks/useBarbers";
 import { Unit } from "@/hooks/useUnits";
 
@@ -43,6 +43,9 @@ const barberSchema = z.object({
   use_custom_fees: z.boolean(),
   debit_card_fee_percent: z.number().min(0).max(100).optional().nullable(),
   credit_card_fee_percent: z.number().min(0).max(100).optional().nullable(),
+  lunch_break_enabled: z.boolean(),
+  lunch_break_start: z.string().optional().nullable(),
+  lunch_break_end: z.string().optional().nullable(),
 });
 
 type BarberFormValues = z.infer<typeof barberSchema>;
@@ -80,6 +83,9 @@ export function BarberFormModal({
       use_custom_fees: false,
       debit_card_fee_percent: null,
       credit_card_fee_percent: null,
+      lunch_break_enabled: false,
+      lunch_break_start: "12:00",
+      lunch_break_end: "13:00",
     },
   });
 
@@ -88,6 +94,7 @@ export function BarberFormModal({
   const isEditMode = !!barber;
   const showUnitSelector = !isEditMode && units.length > 1;
   const useCustomFees = form.watch("use_custom_fees");
+  const lunchBreakEnabled = form.watch("lunch_break_enabled");
 
   // Reset form when modal opens/closes or barber changes
   useEffect(() => {
@@ -105,6 +112,9 @@ export function BarberFormModal({
         use_custom_fees: hasCustomFees,
         debit_card_fee_percent: barber?.debit_card_fee_percent ?? null,
         credit_card_fee_percent: barber?.credit_card_fee_percent ?? null,
+        lunch_break_enabled: barber?.lunch_break_enabled ?? false,
+        lunch_break_start: barber?.lunch_break_start || "12:00",
+        lunch_break_end: barber?.lunch_break_end || "13:00",
       });
       setSelectedColor(barber?.calendar_color || "#FF6B00");
     }
@@ -115,6 +125,9 @@ export function BarberFormModal({
       ...data,
       debit_card_fee_percent: data.use_custom_fees ? data.debit_card_fee_percent : null,
       credit_card_fee_percent: data.use_custom_fees ? data.credit_card_fee_percent : null,
+      lunch_break_enabled: data.lunch_break_enabled,
+      lunch_break_start: data.lunch_break_enabled ? data.lunch_break_start : null,
+      lunch_break_end: data.lunch_break_enabled ? data.lunch_break_end : null,
     };
     onSubmit(submitData);
     form.reset();
@@ -359,6 +372,71 @@ export function BarberFormModal({
               {!useCustomFees && (
                 <p className="text-xs text-muted-foreground">
                   Usando taxas globais definidas em Configurações → Taxas Financeiras
+                </p>
+              )}
+            </div>
+
+            {/* Lunch Break Section */}
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Horário de Almoço/Intervalo</span>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="lunch_break_enabled"
+                  render={({ field }) => (
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+              </div>
+              
+              {lunchBreakEnabled && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="lunch_break_start"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Início</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="time"
+                            value={field.value ?? "12:00"}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lunch_break_end"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Fim</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="time"
+                            value={field.value ?? "13:00"}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+              
+              {!lunchBreakEnabled && (
+                <p className="text-xs text-muted-foreground">
+                  Defina um intervalo para bloquear agendamentos nesse período
                 </p>
               )}
             </div>

@@ -128,6 +128,33 @@ export function useAppointments(startDate?: Date, endDate?: Date, barberId?: str
   const checkConflict = async (barberId: string, startTime: Date, endTime: Date, excludeAppointmentId?: string) => {
     if (!currentUnitId) return false;
 
+    // Check for lunch break conflict
+    const { data: barber } = await supabase
+      .from("barbers")
+      .select("lunch_break_enabled, lunch_break_start, lunch_break_end")
+      .eq("id", barberId)
+      .single();
+
+    if (barber?.lunch_break_enabled && barber.lunch_break_start && barber.lunch_break_end) {
+      const aptStartMinutes = startTime.getHours() * 60 + startTime.getMinutes();
+      const aptEndMinutes = endTime.getHours() * 60 + endTime.getMinutes();
+      
+      const [lunchStartHour, lunchStartMin] = barber.lunch_break_start.split(":").map(Number);
+      const [lunchEndHour, lunchEndMin] = barber.lunch_break_end.split(":").map(Number);
+      const lunchStartMinutes = lunchStartHour * 60 + lunchStartMin;
+      const lunchEndMinutes = lunchEndHour * 60 + lunchEndMin;
+
+      // Check if there's overlap between appointment and lunch break
+      if (aptStartMinutes < lunchEndMinutes && aptEndMinutes > lunchStartMinutes) {
+        return { 
+          id: "lunch_break", 
+          client_name: `Intervalo do profissional (${barber.lunch_break_start.slice(0, 5)} - ${barber.lunch_break_end.slice(0, 5)})`,
+          start_time: "",
+          end_time: ""
+        };
+      }
+    }
+
     let queryBuilder = supabase
       .from("appointments")
       .select("id, start_time, end_time, client_name")

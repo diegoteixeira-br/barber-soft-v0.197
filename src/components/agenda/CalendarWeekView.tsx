@@ -5,12 +5,16 @@ import { CalendarEvent } from "./CalendarEvent";
 import { useCurrentTime } from "@/hooks/useCurrentTime";
 import type { Appointment } from "@/hooks/useAppointments";
 import type { BusinessHour, Holiday } from "@/hooks/useBusinessHours";
+import { Coffee } from "lucide-react";
 
 interface Barber {
   id: string;
   name: string;
   calendar_color: string | null;
   is_active: boolean | null;
+  lunch_break_enabled?: boolean;
+  lunch_break_start?: string | null;
+  lunch_break_end?: string | null;
 }
 
 interface CalendarWeekViewProps {
@@ -172,9 +176,26 @@ export function CalendarWeekView({
         return hour >= dayOpen && hour < dayClose;
       }
     }
-    // Fallback to default hours
     return hour >= fallbackOpeningHour && hour < fallbackClosingHour;
   };
+
+  // Check if a specific hour slot overlaps with selected barber's lunch break
+  const isWithinLunchBreak = (hour: number) => {
+    if (!selectedBarberId) return false;
+    
+    const barber = barbers.find(b => b.id === selectedBarberId);
+    if (!barber?.lunch_break_enabled || !barber.lunch_break_start || !barber.lunch_break_end) {
+      return false;
+    }
+    
+    const [startHour] = barber.lunch_break_start.split(":").map(Number);
+    const [endHour, endMin] = barber.lunch_break_end.split(":").map(Number);
+    const lunchEndHour = endMin > 0 ? endHour : endHour;
+    
+    return hour >= startHour && hour < lunchEndHour;
+  };
+
+  const selectedBarber = selectedBarberId ? barbers.find(b => b.id === selectedBarberId) : null;
 
   return (
     <div 
@@ -271,6 +292,7 @@ export function CalendarWeekView({
                     const slotAppointments = appointmentsByDayAndHour[dayKey]?.[hour] || [];
                     const slotDate = setMinutes(setHours(day, hour), 0);
                     const withinHours = isWithinBusinessHoursForDay(day, hour);
+                    const isLunchBreak = isWithinLunchBreak(hour);
 
                     return (
                       <div
@@ -278,25 +300,34 @@ export function CalendarWeekView({
                         className={`border-b border-border p-0.5 transition-colors ${
                           isClosed 
                             ? "bg-muted/40 cursor-not-allowed" 
-                            : `cursor-pointer hover:bg-muted/30 ${
-                                withinHours 
-                                  ? "bg-blue-100/40 dark:bg-blue-900/20" 
-                                  : ""
-                              } ${isDayToday && withinHours ? "bg-blue-100/50 dark:bg-blue-900/30" : ""}`
+                            : isLunchBreak
+                              ? "bg-orange-100/60 dark:bg-orange-900/20 cursor-not-allowed"
+                              : `cursor-pointer hover:bg-muted/30 ${
+                                  withinHours 
+                                    ? "bg-blue-100/40 dark:bg-blue-900/20" 
+                                    : ""
+                                } ${isDayToday && withinHours ? "bg-blue-100/50 dark:bg-blue-900/30" : ""}`
                         }`}
                         style={{ height: DEFAULT_HOUR_HEIGHT }}
-                        onClick={() => !isClosed && onSlotClick(slotDate)}
+                        onClick={() => !isClosed && !isLunchBreak && onSlotClick(slotDate)}
                       >
-                        <div className="space-y-0.5 overflow-hidden h-full">
-                          {slotAppointments.map(apt => (
-                            <CalendarEvent
-                              key={apt.id}
-                              appointment={apt}
-                              onClick={() => onAppointmentClick(apt)}
-                              ultraCompact={showAllBarbers}
-                            />
-                          ))}
-                        </div>
+                        {isLunchBreak && slotAppointments.length === 0 && !isClosed ? (
+                          <div className="h-full flex items-center justify-center gap-1 text-orange-600 dark:text-orange-400">
+                            <Coffee className="h-3 w-3" />
+                            <span className="text-[10px] font-medium">Intervalo</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5 overflow-hidden h-full">
+                            {slotAppointments.map(apt => (
+                              <CalendarEvent
+                                key={apt.id}
+                                appointment={apt}
+                                onClick={() => onAppointmentClick(apt)}
+                                ultraCompact={showAllBarbers}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

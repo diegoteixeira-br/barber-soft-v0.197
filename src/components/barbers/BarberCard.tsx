@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Barber } from "@/hooks/useBarbers";
-import { Pencil, Trash2, Phone, Percent, Building2, Mail, CheckCircle2, Clock, Link2, Copy, Loader2, CreditCard } from "lucide-react";
+import { Pencil, Trash2, Phone, Percent, Building2, Mail, CheckCircle2, Clock, Link2, Copy, Loader2, CreditCard, Coffee } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,6 +124,16 @@ export function BarberCard({ barber, onEdit, onDelete, onToggleActive, onGenerat
                 <Badge variant="outline" className="text-xs gap-1">
                   <CreditCard className="h-3 w-3" />
                   Taxas personalizadas
+                </Badge>
+              </div>
+            )}
+
+            {/* Lunch break indicator */}
+            {barber.lunch_break_enabled && barber.lunch_break_start && barber.lunch_break_end && (
+              <div className="flex items-center gap-1 mt-1">
+                <Badge variant="outline" className="text-xs gap-1 bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400">
+                  <Coffee className="h-3 w-3" />
+                  Intervalo: {barber.lunch_break_start.slice(0, 5)} - {barber.lunch_break_end.slice(0, 5)}
                 </Badge>
               </div>
             )}

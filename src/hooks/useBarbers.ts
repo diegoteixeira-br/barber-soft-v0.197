@@ -19,6 +19,9 @@ export interface Barber {
   invite_token?: string | null;
   debit_card_fee_percent?: number | null;
   credit_card_fee_percent?: number | null;
+  lunch_break_enabled?: boolean;
+  lunch_break_start?: string | null;
+  lunch_break_end?: string | null;
 }
 
 export type BarberFormData = Omit<Barber, "id" | "created_at" | "company_id" | "unit_name"> & {
@@ -92,6 +95,9 @@ export function useBarbers(unitId: string | null | undefined) {
           company_id: unit?.company_id || null,
           debit_card_fee_percent: barber.debit_card_fee_percent ?? null,
           credit_card_fee_percent: barber.credit_card_fee_percent ?? null,
+          lunch_break_enabled: barber.lunch_break_enabled ?? false,
+          lunch_break_start: barber.lunch_break_start ?? null,
+          lunch_break_end: barber.lunch_break_end ?? null,
         })
         .select()
         .single();
@@ -159,6 +165,9 @@ export function useBarbers(unitId: string | null | undefined) {
         is_active: barber.is_active,
         debit_card_fee_percent: barber.debit_card_fee_percent ?? null,
         credit_card_fee_percent: barber.credit_card_fee_percent ?? null,
+        lunch_break_enabled: barber.lunch_break_enabled ?? false,
+        lunch_break_start: barber.lunch_break_start ?? null,
+        lunch_break_end: barber.lunch_break_end ?? null,
       };
 
       // Only update email if barber doesn't have an associated user account

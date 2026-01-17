@@ -6,6 +6,7 @@ import { useCurrentTime } from "@/hooks/useCurrentTime";
 import type { Appointment } from "@/hooks/useAppointments";
 import type { Barber } from "@/hooks/useBarbers";
 import type { BusinessHour, Holiday } from "@/hooks/useBusinessHours";
+import { Coffee } from "lucide-react";
 
 interface CalendarDayViewProps {
   currentDate: Date;
@@ -115,6 +116,19 @@ export function CalendarDayView({
 
   const isWithinBusinessHours = (hour: number) => hour >= openingHour && hour < closingHour;
 
+  // Check if a specific hour slot overlaps with a barber's lunch break
+  const isWithinLunchBreak = (barber: Barber, hour: number) => {
+    if (!barber.lunch_break_enabled || !barber.lunch_break_start || !barber.lunch_break_end) {
+      return false;
+    }
+    
+    const [startHour] = barber.lunch_break_start.split(":").map(Number);
+    const [endHour, endMin] = barber.lunch_break_end.split(":").map(Number);
+    const lunchEndHour = endMin > 0 ? endHour : endHour;
+    
+    return hour >= startHour && hour < lunchEndHour;
+  };
+
   return (
     <div ref={containerRef} data-calendar-day-container className="h-full flex flex-col overflow-hidden">
       <div className={`min-w-[600px] ${activeBarbers.length > 3 ? "min-w-[900px]" : ""} h-full flex flex-col overflow-hidden`}>
@@ -165,13 +179,35 @@ export function CalendarDayView({
                     const slotAppointments = appointmentsByBarberAndHour[barber.id]?.[hour] || [];
                     const slotDate = setMinutes(setHours(currentDate, hour), 0);
                     const withinHours = isWithinBusinessHours(hour);
+                    const isLunchBreak = isWithinLunchBreak(barber, hour);
+                    
                     return (
-                      <div key={hour} className={`border-b border-border p-1 cursor-pointer hover:bg-muted/30 transition-colors ${withinHours ? "bg-blue-100/40 dark:bg-blue-900/20" : ""} ${today && withinHours ? "bg-blue-100/50 dark:bg-blue-900/30" : ""}`} style={{ height: DEFAULT_HOUR_HEIGHT }} onClick={() => onSlotClick(slotDate, barber.id)}>
-                        <div className="space-y-1 overflow-hidden h-full">
-                          {slotAppointments.map(apt => (
-                            <CalendarEvent key={apt.id} appointment={apt} onClick={() => onAppointmentClick(apt)} />
-                          ))}
-                        </div>
+                      <div 
+                        key={hour} 
+                        className={`border-b border-border p-1 transition-colors ${
+                          isLunchBreak 
+                            ? "bg-orange-100/60 dark:bg-orange-900/20 cursor-not-allowed" 
+                            : `cursor-pointer hover:bg-muted/30 ${
+                                withinHours 
+                                  ? "bg-blue-100/40 dark:bg-blue-900/20" 
+                                  : ""
+                              } ${today && withinHours ? "bg-blue-100/50 dark:bg-blue-900/30" : ""}`
+                        }`}
+                        style={{ height: DEFAULT_HOUR_HEIGHT }} 
+                        onClick={() => !isLunchBreak && onSlotClick(slotDate, barber.id)}
+                      >
+                        {isLunchBreak && slotAppointments.length === 0 ? (
+                          <div className="h-full flex items-center justify-center gap-1 text-orange-600 dark:text-orange-400">
+                            <Coffee className="h-4 w-4" />
+                            <span className="text-xs font-medium">Intervalo</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-1 overflow-hidden h-full">
+                            {slotAppointments.map(apt => (
+                              <CalendarEvent key={apt.id} appointment={apt} onClick={() => onAppointmentClick(apt)} />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
