@@ -279,9 +279,13 @@ serve(async (req) => {
       case 'confirm_appointment':
         return await handleConfirmAppointment(supabase, enrichedBody, corsHeaders);
       
+      // Adicionar dependente a um cliente
+      case 'add_dependent':
+        return await handleAddDependent(supabase, enrichedBody, corsHeaders);
+      
       default:
         return new Response(
-          JSON.stringify({ success: false, error: 'Ação inválida. Actions válidas: check, check_availability, create, schedule_appointment, cancel, cancel_appointment, check_client, register_client, update_client, check_slot, confirm_appointment' }),
+          JSON.stringify({ success: false, error: 'Ação inválida. Actions válidas: check, check_availability, create, schedule_appointment, cancel, cancel_appointment, check_client, register_client, update_client, check_slot, confirm_appointment, add_dependent' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }
@@ -1197,6 +1201,19 @@ async function handleCheckClient(supabase: any, body: any, corsHeaders: any) {
 
   console.log('Client found:', client);
 
+  // Buscar dependentes do cliente
+  const { data: dependents, error: dependentsError } = await supabase
+    .from('client_dependents')
+    .select('id, name, birth_date, relationship')
+    .eq('client_id', client.id)
+    .order('name', { ascending: true });
+
+  if (dependentsError) {
+    console.error('Error fetching dependents:', dependentsError);
+  }
+
+  console.log(`Found ${dependents?.length || 0} dependents`);
+
   return new Response(
     JSON.stringify({
       success: true,
@@ -1211,7 +1228,8 @@ async function handleCheckClient(supabase: any, body: any, corsHeaders: any) {
         total_visits: client.total_visits,
         last_visit_at: client.last_visit_at,
         created_at: client.created_at
-      }
+      },
+      dependents: dependents || []
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
@@ -1733,5 +1751,135 @@ async function handleConfirmAppointment(supabase: any, body: any, corsHeaders: a
       received_response: response
     }),
     { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+// Handler para adicionar dependente a um cliente
+async function handleAddDependent(supabase: any, body: any, corsHeaders: any) {
+  const rawPhone = body.phone || body.telefone || body.client_phone;
+  const clientPhone = rawPhone?.replace(/\D/g, '') || null;
+  const dependentName = body.dependent_name || body.nome_dependente;
+  const dependentRelationship = body.relationship || body.parentesco || null;
+  const dependentBirthDate = body.dependent_birth_date || body.data_nascimento || null;
+  const { unit_id, company_id } = body;
+
+  // Validações
+  if (!clientPhone) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Telefone do responsável é obrigatório' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  if (!dependentName) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Nome do dependente é obrigatório' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  if (!unit_id) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'unit_id é obrigatório' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`Adding dependent "${dependentName}" to client with phone: ${clientPhone}`);
+
+  // Buscar cliente pelo telefone
+  const { data: client, error: clientError } = await supabase
+    .from('clients')
+    .select('id, name, unit_id, company_id')
+    .eq('unit_id', unit_id)
+    .eq('phone', clientPhone)
+    .maybeSingle();
+
+  if (clientError) {
+    console.error('Error fetching client:', clientError);
+    return new Response(
+      JSON.stringify({ success: false, error: 'Erro ao buscar cliente' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  if (!client) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Cliente não encontrado. Cadastre o cliente primeiro.' }),
+      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`Found client: ${client.name} (${client.id})`);
+
+  // Verificar se dependente já existe (mesmo nome)
+  const { data: existingDependent, error: checkError } = await supabase
+    .from('client_dependents')
+    .select('id, name')
+    .eq('client_id', client.id)
+    .ilike('name', dependentName)
+    .maybeSingle();
+
+  if (checkError) {
+    console.error('Error checking existing dependent:', checkError);
+  }
+
+  if (existingDependent) {
+    console.log(`Dependent already exists: ${existingDependent.name}`);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        already_exists: true,
+        dependent: {
+          id: existingDependent.id,
+          name: existingDependent.name,
+          client_id: client.id,
+          client_name: client.name
+        },
+        message: `Dependente "${existingDependent.name}" já está cadastrado`
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Criar o dependente
+  const { data: newDependent, error: createError } = await supabase
+    .from('client_dependents')
+    .insert({
+      client_id: client.id,
+      unit_id: client.unit_id,
+      company_id: client.company_id || company_id,
+      name: dependentName,
+      birth_date: dependentBirthDate,
+      relationship: dependentRelationship,
+    })
+    .select('id, name, birth_date, relationship')
+    .single();
+
+  if (createError) {
+    console.error('Error creating dependent:', createError);
+    return new Response(
+      JSON.stringify({ success: false, error: 'Erro ao cadastrar dependente' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`Dependent created: ${newDependent.name} (${newDependent.id})`);
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      already_exists: false,
+      dependent: {
+        id: newDependent.id,
+        name: newDependent.name,
+        birth_date: newDependent.birth_date,
+        relationship: newDependent.relationship,
+        client_id: client.id,
+        client_name: client.name
+      },
+      message: `Dependente "${newDependent.name}" cadastrado com sucesso`
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }

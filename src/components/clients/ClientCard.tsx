@@ -1,4 +1,4 @@
-import { Phone, Calendar, Clock, Edit2, Trash2, Building2, BellOff } from "lucide-react";
+import { Phone, Calendar, Clock, Edit2, Trash2, Building2, BellOff, Eye } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,11 @@ interface ClientCardProps {
   client: Client;
   onEdit: (client: Client) => void;
   onDelete: (client: Client) => void;
+  onView?: (client: Client) => void;
   showUnit?: boolean;
 }
 
-export function ClientCard({ client, onEdit, onDelete, showUnit = false }: ClientCardProps) {
+export function ClientCard({ client, onEdit, onDelete, onView, showUnit = false }: ClientCardProps) {
   const initials = client.name
     .split(" ")
     .map((n) => n[0])
@@ -65,6 +66,16 @@ export function ClientCard({ client, onEdit, onDelete, showUnit = false }: Clien
             </div>
           </div>
           <div className="flex gap-1">
+            {onView && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onView(client)}
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

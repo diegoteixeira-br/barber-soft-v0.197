@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientCard } from "@/components/clients/ClientCard";
 import { ClientFormModal } from "@/components/clients/ClientFormModal";
+import { ClientDetailsModal } from "@/components/clients/ClientDetailsModal";
 import { useClients, Client, ClientFilter, CreateClientData } from "@/hooks/useClients";
 import { useUnits } from "@/hooks/useUnits";
 import { useCurrentUnit } from "@/contexts/UnitContext";
@@ -27,6 +28,7 @@ export default function Clientes() {
   const [search, setSearch] = useState("");
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const [viewingClient, setViewingClient] = useState<Client | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [unitFilter, setUnitFilter] = useState<string>("current");
 
@@ -196,6 +198,7 @@ export default function Clientes() {
               <ClientCard
                 key={client.id}
                 client={client}
+                onView={setViewingClient}
                 onEdit={setEditingClient}
                 onDelete={setDeletingClient}
                 showUnit={showUnitBadge}
@@ -204,6 +207,18 @@ export default function Clientes() {
           </div>
         )}
       </div>
+
+      {/* Client Details Modal */}
+      <ClientDetailsModal
+        open={!!viewingClient}
+        onOpenChange={(open) => !open && setViewingClient(null)}
+        client={viewingClient}
+        onEdit={(client) => {
+          setViewingClient(null);
+          setEditingClient(client);
+        }}
+        showUnit={showUnitBadge}
+      />
 
       {/* Create Modal */}
       <ClientFormModal

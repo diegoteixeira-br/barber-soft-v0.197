@@ -94,8 +94,10 @@ export type Database = {
           client_phone: string | null
           company_id: string | null
           created_at: string
+          dependent_id: string | null
           end_time: string
           id: string
+          is_dependent: boolean | null
           notes: string | null
           payment_method: string | null
           service_id: string | null
@@ -112,8 +114,10 @@ export type Database = {
           client_phone?: string | null
           company_id?: string | null
           created_at?: string
+          dependent_id?: string | null
           end_time: string
           id?: string
+          is_dependent?: boolean | null
           notes?: string | null
           payment_method?: string | null
           service_id?: string | null
@@ -130,8 +134,10 @@ export type Database = {
           client_phone?: string | null
           company_id?: string | null
           created_at?: string
+          dependent_id?: string | null
           end_time?: string
           id?: string
+          is_dependent?: boolean | null
           notes?: string | null
           payment_method?: string | null
           service_id?: string | null
@@ -154,6 +160,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_dependent_id_fkey"
+            columns: ["dependent_id"]
+            isOneToOne: false
+            referencedRelation: "client_dependents"
             referencedColumns: ["id"]
           },
           {
@@ -537,6 +550,67 @@ export type Database = {
           unit_id?: string
         }
         Relationships: []
+      }
+      client_dependents: {
+        Row: {
+          birth_date: string | null
+          client_id: string
+          company_id: string | null
+          created_at: string | null
+          id: string
+          name: string
+          notes: string | null
+          relationship: string | null
+          unit_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          birth_date?: string | null
+          client_id: string
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          relationship?: string | null
+          unit_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          birth_date?: string | null
+          client_id?: string
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          relationship?: string | null
+          unit_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_dependents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_dependents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_dependents_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
