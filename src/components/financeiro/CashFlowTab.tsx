@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
 import { DollarSign, Calendar, TrendingUp, Users, Zap, Banknote, Smartphone, CreditCard, Gift } from "lucide-react";
+import { startOfMonth, endOfMonth } from "date-fns";
 import { useFinancialData, getDateRanges } from "@/hooks/useFinancialData";
 import { RevenueCard } from "./RevenueCard";
 import { TransactionsTable } from "./TransactionsTable";
+import { DateRangePicker } from "./DateRangePicker";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { QuickServiceModal } from "@/components/agenda/QuickServiceModal";
@@ -11,18 +13,25 @@ import { useServices } from "@/hooks/useServices";
 import { useAppointments, type QuickServiceFormData } from "@/hooks/useAppointments";
 import { useCurrentUnit } from "@/contexts/UnitContext";
 
-type PeriodFilter = "today" | "week" | "month";
+type PeriodFilter = "today" | "week" | "month" | "custom";
 
 export function CashFlowTab() {
   const { currentUnitId } = useCurrentUnit();
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("month");
   const [isQuickServiceOpen, setIsQuickServiceOpen] = useState(false);
+  const [customDateRange, setCustomDateRange] = useState({
+    start: startOfMonth(new Date()),
+    end: endOfMonth(new Date()),
+  });
   const dateRanges = getDateRanges();
 
   // Fetch data for each period
   const { appointments: todayAppointments } = useFinancialData(dateRanges.today);
   const { appointments: weekAppointments } = useFinancialData(dateRanges.week);
-  const { appointments: monthAppointments, isLoading } = useFinancialData(dateRanges.month);
+  const { appointments: monthAppointments } = useFinancialData(dateRanges.month);
+  const { appointments: customAppointments, isLoading } = useFinancialData(
+    periodFilter === "custom" ? customDateRange : undefined
+  );
 
   const { barbers } = useBarbers(currentUnitId);
   const { services } = useServices(currentUnitId);
@@ -63,11 +72,13 @@ export function CashFlowTab() {
         return todayAppointments;
       case "week":
         return weekAppointments;
+      case "custom":
+        return customAppointments;
       case "month":
       default:
         return monthAppointments;
     }
-  }, [periodFilter, todayAppointments, weekAppointments, monthAppointments]);
+  }, [periodFilter, todayAppointments, weekAppointments, monthAppointments, customAppointments]);
 
   // Calculate payment method breakdown for filtered period
   const paymentBreakdown = useMemo(() => {
@@ -150,9 +161,9 @@ export function CashFlowTab() {
       </div>
 
       {/* Period Filter */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h3 className="text-lg font-semibold text-foreground">Transações Finalizadas</h3>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Button variant="outline" onClick={() => setIsQuickServiceOpen(true)}>
             <Zap className="h-4 w-4 mr-2" />
             Lançar Serviço
@@ -162,8 +173,15 @@ export function CashFlowTab() {
               <TabsTrigger value="today">Hoje</TabsTrigger>
               <TabsTrigger value="week">Semana</TabsTrigger>
               <TabsTrigger value="month">Mês</TabsTrigger>
+              <TabsTrigger value="custom">Personalizado</TabsTrigger>
             </TabsList>
           </Tabs>
+          {periodFilter === "custom" && (
+            <DateRangePicker
+              dateRange={customDateRange}
+              onDateRangeChange={setCustomDateRange}
+            />
+          )}
         </div>
       </div>
 

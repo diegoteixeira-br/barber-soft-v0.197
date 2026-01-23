@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DollarSign, Wallet, TrendingUp, Banknote, Smartphone, CreditCard, Receipt, Info, Gift } from "lucide-react";
 import { 
@@ -16,6 +16,7 @@ import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { useCurrentUnit } from "@/contexts/UnitContext";
 import { RevenueCard } from "./RevenueCard";
 import { CommissionTable } from "./CommissionTable";
+import { DateRangePicker } from "./DateRangePicker";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type PeriodType = "day" | "week" | "month";
+type PeriodType = "day" | "week" | "month" | "custom";
 
 export function CommissionReportTab() {
   const { currentUnitId } = useCurrentUnit();
@@ -42,6 +43,10 @@ export function CommissionReportTab() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
+  const [customDateRange, setCustomDateRange] = useState({
+    start: startOfMonth(new Date()),
+    end: endOfMonth(new Date()),
+  });
 
   const dateRanges = getDateRanges();
 
@@ -51,11 +56,13 @@ export function CommissionReportTab() {
         return dateRanges.today;
       case "week":
         return dateRanges.week;
+      case "custom":
+        return customDateRange;
       case "month":
       default:
         return getMonthRange(selectedYear, selectedMonth);
     }
-  }, [periodType, selectedYear, selectedMonth, dateRanges.today, dateRanges.week]);
+  }, [periodType, selectedYear, selectedMonth, dateRanges.today, dateRanges.week, customDateRange]);
 
   const { appointments, isLoading } = useFinancialData(dateRange, selectedBarberId);
 
@@ -177,6 +184,7 @@ export function CommissionReportTab() {
               <TabsTrigger value="day">Hoje</TabsTrigger>
               <TabsTrigger value="week">Semana</TabsTrigger>
               <TabsTrigger value="month">Mês</TabsTrigger>
+              <TabsTrigger value="custom">Personalizado</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -221,6 +229,16 @@ export function CommissionReportTab() {
               </Select>
             </div>
           </>
+        )}
+
+        {periodType === "custom" && (
+          <div className="space-y-2">
+            <Label>Intervalo</Label>
+            <DateRangePicker
+              dateRange={customDateRange}
+              onDateRangeChange={setCustomDateRange}
+            />
+          </div>
         )}
 
         <div className="space-y-2">

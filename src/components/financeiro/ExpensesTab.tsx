@@ -6,10 +6,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useExpenses, EXPENSE_CATEGORIES } from "@/hooks/useExpenses";
 import { ExpenseFormModal } from "./ExpenseFormModal";
 import { ExpensesTable } from "./ExpensesTable";
+import { DateRangePicker } from "./DateRangePicker";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
-type PeriodFilter = "today" | "week" | "month";
+type PeriodFilter = "today" | "week" | "month" | "custom";
 
 const COLORS = [
   "hsl(var(--primary))",
@@ -38,12 +39,19 @@ export function ExpensesTab() {
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("month");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [customDateRange, setCustomDateRange] = useState({
+    start: startOfMonth(new Date()),
+    end: endOfMonth(new Date()),
+  });
 
   const dateRanges = getDateRanges();
 
   const { expenses: todayExpenses } = useExpenses(dateRanges.today);
   const { expenses: weekExpenses } = useExpenses(dateRanges.week);
-  const { expenses: monthExpenses, isLoading, deleteExpense } = useExpenses(dateRanges.month);
+  const { expenses: monthExpenses } = useExpenses(dateRanges.month);
+  const { expenses: customExpenses, isLoading, deleteExpense } = useExpenses(
+    periodFilter === "custom" ? customDateRange : undefined
+  );
 
   const todayTotal = useMemo(
     () => todayExpenses.reduce((sum, e) => sum + Number(e.amount), 0),
@@ -71,11 +79,13 @@ export function ExpensesTab() {
         return todayExpenses;
       case "week":
         return weekExpenses;
+      case "custom":
+        return customExpenses;
       case "month":
       default:
         return monthExpenses;
     }
-  }, [periodFilter, todayExpenses, weekExpenses, monthExpenses]);
+  }, [periodFilter, todayExpenses, weekExpenses, monthExpenses, customExpenses]);
 
   // Data for pie chart
   const categoryData = useMemo(() => {
@@ -217,15 +227,24 @@ export function ExpensesTab() {
 
         {/* Table */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h4 className="font-semibold text-foreground">Lançamentos</h4>
-            <Tabs value={periodFilter} onValueChange={(v) => setPeriodFilter(v as PeriodFilter)}>
-              <TabsList className="bg-muted">
-                <TabsTrigger value="today">Hoje</TabsTrigger>
-                <TabsTrigger value="week">Semana</TabsTrigger>
-                <TabsTrigger value="month">Mês</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex flex-wrap items-center gap-4">
+              <Tabs value={periodFilter} onValueChange={(v) => setPeriodFilter(v as PeriodFilter)}>
+                <TabsList className="bg-muted">
+                  <TabsTrigger value="today">Hoje</TabsTrigger>
+                  <TabsTrigger value="week">Semana</TabsTrigger>
+                  <TabsTrigger value="month">Mês</TabsTrigger>
+                  <TabsTrigger value="custom">Personalizado</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {periodFilter === "custom" && (
+                <DateRangePicker
+                  dateRange={customDateRange}
+                  onDateRangeChange={setCustomDateRange}
+                />
+              )}
+            </div>
           </div>
           <ExpensesTable
             expenses={filteredExpenses}
