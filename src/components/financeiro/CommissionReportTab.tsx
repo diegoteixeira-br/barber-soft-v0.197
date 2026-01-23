@@ -4,7 +4,8 @@ import { ptBR } from "date-fns/locale";
 import { DollarSign, Wallet, TrendingUp, Banknote, Smartphone, CreditCard, Receipt, Info, Gift } from "lucide-react";
 import { 
   useFinancialData, 
-  getMonthRange, 
+  getMonthRange,
+  getDateRanges,
   calculateCardFee,
   calculateNetValue,
   calculateCommissionWithFees,
@@ -25,6 +26,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type PeriodType = "day" | "week" | "month";
 
 export function CommissionReportTab() {
   const { currentUnitId } = useCurrentUnit();
@@ -34,14 +38,24 @@ export function CommissionReportTab() {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
 
+  const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
 
-  const dateRange = useMemo(
-    () => getMonthRange(selectedYear, selectedMonth),
-    [selectedYear, selectedMonth]
-  );
+  const dateRanges = getDateRanges();
+
+  const dateRange = useMemo(() => {
+    switch (periodType) {
+      case "day":
+        return dateRanges.today;
+      case "week":
+        return dateRanges.week;
+      case "month":
+      default:
+        return getMonthRange(selectedYear, selectedMonth);
+    }
+  }, [periodType, selectedYear, selectedMonth, dateRanges.today, dateRanges.week]);
 
   const { appointments, isLoading } = useFinancialData(dateRange, selectedBarberId);
 
@@ -157,42 +171,57 @@ export function CommissionReportTab() {
       {/* Filters */}
       <div className="flex flex-wrap gap-4 p-4 rounded-lg bg-muted/30 border border-border">
         <div className="space-y-2">
-          <Label>Mês</Label>
-          <Select
-            value={String(selectedMonth)}
-            onValueChange={(v) => setSelectedMonth(Number(v))}
-          >
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((month) => (
-                <SelectItem key={month.value} value={String(month.value)}>
-                  {month.label.charAt(0).toUpperCase() + month.label.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>Período</Label>
+          <Tabs value={periodType} onValueChange={(v) => setPeriodType(v as PeriodType)}>
+            <TabsList className="bg-muted">
+              <TabsTrigger value="day">Hoje</TabsTrigger>
+              <TabsTrigger value="week">Semana</TabsTrigger>
+              <TabsTrigger value="month">Mês</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        <div className="space-y-2">
-          <Label>Ano</Label>
-          <Select
-            value={String(selectedYear)}
-            onValueChange={(v) => setSelectedYear(Number(v))}
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((year) => (
-                <SelectItem key={year} value={String(year)}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {periodType === "month" && (
+          <>
+            <div className="space-y-2">
+              <Label>Mês</Label>
+              <Select
+                value={String(selectedMonth)}
+                onValueChange={(v) => setSelectedMonth(Number(v))}
+              >
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {months.map((month) => (
+                    <SelectItem key={month.value} value={String(month.value)}>
+                      {month.label.charAt(0).toUpperCase() + month.label.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Ano</Label>
+              <Select
+                value={String(selectedYear)}
+                onValueChange={(v) => setSelectedYear(Number(v))}
+              >
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
 
         <div className="space-y-2">
           <Label>Barbeiro</Label>
