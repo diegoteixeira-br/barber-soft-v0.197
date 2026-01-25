@@ -317,7 +317,11 @@ export function CalendarWeekView({
                             <span className="text-[10px] font-medium">Intervalo</span>
                           </div>
                         ) : (
-                          <div className="space-y-0.5 overflow-hidden h-full">
+                          <div className={`space-y-0.5 h-full ${
+                            showAllBarbers && slotAppointments.length > 2 
+                              ? "overflow-y-auto" 
+                              : "overflow-hidden"
+                          }`}>
                             {slotAppointments.map(apt => (
                               <CalendarEvent
                                 key={apt.id}
