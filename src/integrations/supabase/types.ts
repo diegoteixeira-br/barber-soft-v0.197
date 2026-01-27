@@ -1027,6 +1027,45 @@ export type Database = {
           },
         ]
       }
+      plan_features: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          feature_key: string
+          feature_name: string
+          feature_type: string
+          franquias_value: string | null
+          id: string
+          inicial_value: string | null
+          profissional_value: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          feature_key: string
+          feature_name: string
+          feature_type: string
+          franquias_value?: string | null
+          id?: string
+          inicial_value?: string | null
+          profissional_value?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          feature_key?: string
+          feature_name?: string
+          feature_type?: string
+          franquias_value?: string | null
+          id?: string
+          inicial_value?: string | null
+          profissional_value?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       product_sales: {
         Row: {
           appointment_id: string | null
@@ -1179,53 +1218,89 @@ export type Database = {
       }
       saas_settings: {
         Row: {
+          annual_discount_percent: number | null
           default_trial_days: number | null
           elite_plan_price: number | null
           empire_plan_price: number | null
+          franquias_plan_annual_price: number | null
+          franquias_plan_price: number | null
+          google_conversion_id: string | null
+          google_tag_id: string | null
           id: string
+          inicial_plan_annual_price: number | null
+          inicial_plan_price: number | null
           maintenance_message: string | null
           maintenance_mode: boolean | null
+          meta_access_token: string | null
+          meta_pixel_id: string | null
           professional_plan_price: number | null
+          profissional_plan_annual_price: number | null
+          profissional_plan_price: number | null
           stripe_live_publishable_key: string | null
           stripe_live_secret_key: string | null
           stripe_mode: string | null
           stripe_test_publishable_key: string | null
           stripe_test_secret_key: string | null
           stripe_webhook_secret: string | null
+          tiktok_pixel_id: string | null
           updated_at: string | null
           updated_by: string | null
         }
         Insert: {
+          annual_discount_percent?: number | null
           default_trial_days?: number | null
           elite_plan_price?: number | null
           empire_plan_price?: number | null
+          franquias_plan_annual_price?: number | null
+          franquias_plan_price?: number | null
+          google_conversion_id?: string | null
+          google_tag_id?: string | null
           id?: string
+          inicial_plan_annual_price?: number | null
+          inicial_plan_price?: number | null
           maintenance_message?: string | null
           maintenance_mode?: boolean | null
+          meta_access_token?: string | null
+          meta_pixel_id?: string | null
           professional_plan_price?: number | null
+          profissional_plan_annual_price?: number | null
+          profissional_plan_price?: number | null
           stripe_live_publishable_key?: string | null
           stripe_live_secret_key?: string | null
           stripe_mode?: string | null
           stripe_test_publishable_key?: string | null
           stripe_test_secret_key?: string | null
           stripe_webhook_secret?: string | null
+          tiktok_pixel_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
         Update: {
+          annual_discount_percent?: number | null
           default_trial_days?: number | null
           elite_plan_price?: number | null
           empire_plan_price?: number | null
+          franquias_plan_annual_price?: number | null
+          franquias_plan_price?: number | null
+          google_conversion_id?: string | null
+          google_tag_id?: string | null
           id?: string
+          inicial_plan_annual_price?: number | null
+          inicial_plan_price?: number | null
           maintenance_message?: string | null
           maintenance_mode?: boolean | null
+          meta_access_token?: string | null
+          meta_pixel_id?: string | null
           professional_plan_price?: number | null
+          profissional_plan_annual_price?: number | null
+          profissional_plan_price?: number | null
           stripe_live_publishable_key?: string | null
           stripe_live_secret_key?: string | null
           stripe_mode?: string | null
           stripe_test_publishable_key?: string | null
           stripe_test_secret_key?: string | null
           stripe_webhook_secret?: string | null
+          tiktok_pixel_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }

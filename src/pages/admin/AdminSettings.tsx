@@ -1,6 +1,8 @@
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StripeSettingsCard } from "@/components/admin/StripeSettingsCard";
 import { PlanPricingCard } from "@/components/admin/PlanPricingCard";
+import { PlanFeaturesCard } from "@/components/admin/PlanFeaturesCard";
+import { TrackingPixelsCard } from "@/components/admin/TrackingPixelsCard";
 import { MaintenanceCard } from "@/components/admin/MaintenanceCard";
 
 export default function AdminSettings() {
@@ -17,7 +19,12 @@ export default function AdminSettings() {
           <PlanPricingCard />
         </div>
         
-        <MaintenanceCard />
+        <PlanFeaturesCard />
+        
+        <div className="grid gap-6 lg:grid-cols-2">
+          <TrackingPixelsCard />
+          <MaintenanceCard />
+        </div>
       </div>
     </AdminLayout>
   );
