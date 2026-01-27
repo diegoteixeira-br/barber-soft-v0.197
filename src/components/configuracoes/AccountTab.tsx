@@ -9,6 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { 
   Shield, 
   LogOut, 
@@ -22,7 +33,9 @@ import {
   Infinity,
   Calendar,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  Trash2,
+  XCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +58,9 @@ export function AccountTab() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [isOpeningPortal, setIsOpeningPortal] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  
   // Feedback state
   const [feedbackType, setFeedbackType] = useState<'feedback' | 'bug' | 'suggestion'>('feedback');
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -118,6 +134,42 @@ export function AccountTab() {
         }
       }
     );
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "EXCLUIR") return;
+    
+    setIsDeletingAccount(true);
+    try {
+      const { error } = await supabase.functions.invoke("delete-my-account");
+      
+      if (error) {
+        toast({
+          title: "Erro ao excluir conta",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      toast({
+        title: "Conta excluída",
+        description: "Sua conta foi excluída com sucesso.",
+      });
+      
+      // Sign out and redirect
+      await supabase.auth.signOut();
+      navigate("/");
+    } catch (err) {
+      toast({
+        title: "Erro ao excluir conta",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingAccount(false);
+      setDeleteConfirmText("");
+    }
   };
 
   const isPartner = status?.is_partner;
@@ -433,6 +485,133 @@ export function AccountTab() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Danger Zone - Cancel/Delete */}
+      {!isSuperAdmin && (
+        <Card className="border-destructive/50 bg-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Zona de Perigo
+            </CardTitle>
+            <CardDescription>
+              Ações irreversíveis. Tome cuidado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Cancel Subscription */}
+            {status?.plan_status === "active" && !isPartner && (
+              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+                <div className="flex items-start gap-3">
+                  <XCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-medium">Cancelar Assinatura</p>
+                    <p className="text-sm text-muted-foreground">
+                      Você continuará tendo acesso até o fim do período pago. Após isso, sua conta será desativada.
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="w-full border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={async () => {
+                    setIsOpeningPortal(true);
+                    await openCustomerPortal();
+                    setIsOpeningPortal(false);
+                  }}
+                  disabled={isOpeningPortal}
+                >
+                  {isOpeningPortal ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Cancelar Assinatura
+                </Button>
+              </div>
+            )}
+
+            {/* Delete Account */}
+            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 space-y-3">
+              <div className="flex items-start gap-3">
+                <Trash2 className="h-5 w-5 text-destructive mt-0.5" />
+                <div>
+                  <p className="font-medium text-destructive">Excluir Conta Permanentemente</p>
+                  <p className="text-sm text-muted-foreground">
+                    Esta ação é irreversível. Todos os seus dados, clientes, agendamentos e configurações serão excluídos permanentemente.
+                    {status?.plan_status === "active" && " Sua assinatura será cancelada automaticamente."}
+                  </p>
+                </div>
+              </div>
+              
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="destructive" 
+                    className="w-full"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir Minha Conta
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-destructive">
+                      Tem certeza absoluta?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-4">
+                      <p>
+                        Esta ação <strong>não pode ser desfeita</strong>. Isso irá excluir permanentemente:
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        <li>Sua conta e perfil</li>
+                        <li>Todas as unidades e profissionais</li>
+                        <li>Todos os clientes e histórico</li>
+                        <li>Todos os agendamentos e dados financeiros</li>
+                        <li>Todas as configurações e integrações</li>
+                      </ul>
+                      <div className="mt-4">
+                        <Label htmlFor="delete-confirm" className="text-sm font-medium">
+                          Digite <strong className="text-destructive">EXCLUIR</strong> para confirmar:
+                        </Label>
+                        <Input
+                          id="delete-confirm"
+                          value={deleteConfirmText}
+                          onChange={(e) => setDeleteConfirmText(e.target.value)}
+                          placeholder="EXCLUIR"
+                          className="mt-2"
+                        />
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setDeleteConfirmText("")}>
+                      Cancelar
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteAccount}
+                      disabled={deleteConfirmText !== "EXCLUIR" || isDeletingAccount}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isDeletingAccount ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Excluindo...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir Permanentemente
+                        </>
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
