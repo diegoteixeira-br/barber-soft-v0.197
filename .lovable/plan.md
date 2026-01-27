@@ -1,304 +1,209 @@
 
-# Plano: Sistema de Controle de Parceiros
+# Plano Revisado: Sistema de Cadastro com Fluxos Diferenciados
 
 ## Visao Geral
-Implementar um sistema completo de gestao de parceiros para barbearias que recebem acesso gratuito por um periodo especifico, com possibilidade de renovacao ou migracao para um plano pago quando o periodo expirar.
 
-## Alteracoes no Banco de Dados
+Implementar dois fluxos distintos de conversao:
 
-### Novos Campos na Tabela `companies`
-Adicionar campos especificos para controle de parcerias:
+1. **"Comecar Agora"** (nos cards de plano) → Cadastro + Checkout imediato com cartao
+2. **"Testar Gratis Agora"** (hero/CTAs genericos) → Cadastro sem cartao, escolhe plano depois
 
-```sql
-ALTER TABLE public.companies
-  ADD COLUMN IF NOT EXISTS is_partner BOOLEAN DEFAULT false,
-  ADD COLUMN IF NOT EXISTS partner_started_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS partner_ends_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS partner_notes TEXT,
-  ADD COLUMN IF NOT EXISTS partner_renewed_count INTEGER DEFAULT 0;
+## Arquitetura dos Dois Fluxos
+
+### Fluxo 1: "Comecar Agora" em Plano Especifico
+
+```text
+Usuario clica "Comecar Agora" no plano Profissional (anual)
+         ↓
+Redireciona para /auth?tab=signup&plan=profissional&billing=annual
+         ↓
+Formulario de cadastro (nome, email, senha)
+         ↓
+Apos criar conta, redireciona automaticamente para Stripe Checkout
+(com trial de 7 dias + cadastro de cartao)
+         ↓
+Retorna ao /dashboard com assinatura ativa (trial)
 ```
 
-- **is_partner**: Indica se a barbearia e um parceiro
-- **partner_started_at**: Data de inicio da parceria
-- **partner_ends_at**: Data de termino da parceria
-- **partner_notes**: Notas/observacoes sobre a parceria
-- **partner_renewed_count**: Quantas vezes a parceria foi renovada
+### Fluxo 2: "Testar Gratis Agora" (Generico)
 
-### Novo Valor de plan_status
-Adicionar `partner` como um status valido para distinguir parceiros de trials e assinaturas pagas.
+```text
+Usuario clica "Testar Gratis Agora" no hero
+         ↓
+Redireciona para /auth?tab=signup (sem parametros de plano)
+         ↓
+Formulario de cadastro (nome, email, senha)
+         ↓
+Apos criar conta, redireciona para /escolher-plano
+         ↓
+Usuario ve os 3 planos e escolhe qual quer testar
+         ↓
+Clica "Iniciar Trial" → Stripe Checkout (7 dias gratis + cartao)
+         ↓
+Retorna ao /dashboard com assinatura ativa (trial)
+```
 
-## Alteracoes no Frontend
+## Diferenca Principal
 
-### 1. Atualizar Interface da Tabela de Barbearias
+| Aspecto | "Comecar Agora" | "Testar Gratis" |
+|---------|-----------------|-----------------|
+| Plano pre-definido | Sim | Nao |
+| Passos para checkout | 1 (direto) | 2 (escolha intermediaria) |
+| Friccao | Menor | Maior (mais decisoes) |
+| Conversao esperada | Maior | Para indecisos |
 
-**Arquivo**: `src/components/admin/CompaniesTable.tsx`
+## Alteracoes Necessarias
 
-Alteracoes:
-- Adicionar badge visual "Parceiro" em roxo/verde para identificar parceiros
-- Mostrar data de termino da parceria quando aplicavel
-- Novas opcoes no menu dropdown:
-  - "Ativar Parceria" - abre modal para configurar
-  - "Renovar Parceria" - para parceiros existentes
-  - "Encerrar Parceria" - converte para status trial ou cancellled
+### 1. Atualizar PricingSection.tsx
 
-### 2. Criar Modal de Gestao de Parceria
-
-**Novo Arquivo**: `src/components/admin/PartnershipModal.tsx`
-
-Funcionalidades:
-- Campo para selecionar duracao da parceria (ex: 1 mes, 3 meses, 6 meses, 1 ano, personalizado)
-- Seletor de data de inicio e fim
-- Campo de notas/observacoes
-- Seletor de plano que o parceiro tera acesso (Inicial, Profissional, Franquias)
-- Historico de renovacoes anteriores
-- Botao de confirmar ativacao/renovacao
-
-### 3. Atualizar Modal de Detalhes da Empresa
-
-**Arquivo**: `src/components/admin/CompanyDetailsModal.tsx`
-
-Adicionar secao de parceria mostrando:
-- Status de parceiro (Sim/Nao)
-- Data de inicio da parceria
-- Data de termino da parceria
-- Dias restantes
-- Numero de renovacoes
-- Notas da parceria
-
-### 4. Atualizar Hook de Admin Companies
-
-**Arquivo**: `src/hooks/useAdminCompanies.ts`
-
-Novas funcoes:
-- `activatePartnership({ companyId, planType, startsAt, endsAt, notes })` - Ativa parceria
-- `renewPartnership({ companyId, additionalDays, notes })` - Renova parceria existente
-- `endPartnership({ companyId, convertToTrial })` - Encerra parceria
-
-Atualizar interface `AdminCompany` com novos campos:
-- is_partner
-- partner_started_at
-- partner_ends_at
-- partner_notes
-- partner_renewed_count
-
-### 5. Atualizar Cores/Badges de Status
-
-**Arquivo**: `src/components/admin/CompaniesTable.tsx`
+Passar o plano e ciclo de faturamento na URL:
 
 ```typescript
-const statusColors = {
-  trial: "bg-yellow-500/20 text-yellow-400",
-  active: "bg-green-500/20 text-green-400",
-  partner: "bg-purple-500/20 text-purple-400",  // NOVO
-  cancelled: "bg-slate-500/20 text-slate-400",
-  overdue: "bg-red-500/20 text-red-400",
+// De:
+onClick={() => navigate("/auth?tab=signup")}
+
+// Para:
+onClick={() => navigate(`/auth?tab=signup&plan=${plan.name.toLowerCase()}&billing=${isAnnual ? 'annual' : 'monthly'}`)}
+```
+
+### 2. Atualizar Auth.tsx
+
+Detectar parametros de plano e processar apos signup:
+
+```typescript
+const plan = searchParams.get("plan"); // "inicial", "profissional", "franquias"
+const billing = searchParams.get("billing"); // "monthly", "annual"
+
+// Apos signup bem-sucedido:
+if (plan && billing) {
+  // Redirecionar para checkout com o plano escolhido
+  await supabase.functions.invoke('create-checkout-session', {
+    body: { plan, billing }
+  });
+} else {
+  // Redirecionar para pagina de escolha de plano
+  navigate("/escolher-plano");
+}
+```
+
+### 3. Criar Pagina EscolherPlano.tsx
+
+Nova pagina para usuarios que vieram do "Testar Gratis":
+
+- Mostra os 3 planos com toggle mensal/anual
+- Botao "Iniciar Trial de 7 Dias" em cada plano
+- Apos escolher, vai para Stripe Checkout
+
+### 4. Atualizar create-checkout-session
+
+Adicionar trial de 7 dias:
+
+```typescript
+subscription_data: {
+  trial_period_days: 7,
+  metadata: { company_id, plan, billing }
+}
+```
+
+### 5. Atualizar HeroSection.tsx (Opcional)
+
+Manter texto consistente - o "Testar Gratis" realmente nao pede cartao no inicio, so depois de escolher o plano.
+
+## Componentes a Criar/Modificar
+
+| Arquivo | Acao | Descricao |
+|---------|------|-----------|
+| `src/components/landing/PricingSection.tsx` | Modificar | Passar plan e billing na URL |
+| `src/pages/Auth.tsx` | Modificar | Detectar plano e iniciar checkout automatico |
+| `src/pages/EscolherPlano.tsx` | Criar | Pagina para escolher plano (fluxo generico) |
+| `src/hooks/useSubscription.ts` | Criar | Hook para gerenciar estado de assinatura |
+| `supabase/functions/create-checkout-session/index.ts` | Modificar | Adicionar trial de 7 dias |
+| `src/App.tsx` | Modificar | Adicionar rota /escolher-plano |
+
+## Logica Detalhada do Auth.tsx
+
+```typescript
+const handleSignup = async (e: React.FormEvent) => {
+  // ... validacao existente ...
+  
+  const { data, error } = await supabase.auth.signUp({...});
+  
+  if (!error && data.user) {
+    const plan = searchParams.get("plan");
+    const billing = searchParams.get("billing");
+    
+    if (plan && billing) {
+      // Fluxo "Comecar Agora" - checkout direto
+      setIsLoading(true);
+      const { data: checkoutData } = await supabase.functions.invoke(
+        'create-checkout-session',
+        { body: { plan, billing } }
+      );
+      
+      if (checkoutData?.url) {
+        window.location.href = checkoutData.url;
+      }
+    } else {
+      // Fluxo "Testar Gratis" - escolher plano
+      navigate("/escolher-plano");
+    }
+  }
 };
 ```
 
-## Logica de Expiracao de Parceria
-
-### Verificacao no Edge Function `check-subscription`
-
-**Arquivo**: `supabase/functions/check-subscription/index.ts`
-
-Adicionar logica para verificar se a parceria expirou:
-
-```typescript
-// Se e parceiro, verificar se ainda esta valido
-if (company.is_partner && company.partner_ends_at) {
-  const partnerEndsAt = new Date(company.partner_ends_at);
-  if (partnerEndsAt > new Date()) {
-    // Parceria ainda valida
-    return { subscribed: true, plan_status: 'partner', ... };
-  } else {
-    // Parceria expirou - atualizar status no banco
-    await updateCompanyStatus(company.id, 'expired_partner');
-  }
-}
-```
-
-### Fluxo Quando Parceria Expira
-
-1. O parceiro continua com acesso aos dados (clientes, agendamentos, etc.)
-2. O sistema mostra banner informando que a parceria expirou
-3. O parceiro pode:
-   - Aguardar renovacao pelo super admin
-   - Contratar um plano pago normalmente
-
-## Componentes a Serem Criados/Modificados
-
-| Componente | Acao | Descricao |
-|------------|------|-----------|
-| `PartnershipModal.tsx` | Criar | Modal para ativar/renovar parceria |
-| `CompaniesTable.tsx` | Modificar | Adicionar badge e acoes de parceiro |
-| `CompanyDetailsModal.tsx` | Modificar | Mostrar info de parceria |
-| `useAdminCompanies.ts` | Modificar | Adicionar funcoes de parceria |
-| `check-subscription/index.ts` | Modificar | Verificar status de parceiro |
-
-## Interface do Modal de Parceria
+## Pagina EscolherPlano.tsx (Layout)
 
 ```text
-+--------------------------------------------------+
-|         Gerenciar Parceria                       |
-+--------------------------------------------------+
-|                                                  |
-|  Barbearia: [Nome da Barbearia]                  |
-|                                                  |
-|  Plano com Acesso:                               |
-|  [ ] Inicial  [x] Profissional  [ ] Franquias    |
-|                                                  |
-|  Periodo da Parceria:                            |
-|  [Selecione] v   ou   Personalizado              |
-|  - 1 mes                                         |
-|  - 3 meses                                       |
-|  - 6 meses                                       |
-|  - 1 ano                                         |
-|                                                  |
-|  Data Inicio: [27/01/2026]                       |
-|  Data Termino: [27/01/2027]                      |
-|                                                  |
-|  Notas/Observacoes:                              |
-|  +----------------------------------------------+|
-|  | Parceria fechada na feira de negocios...     ||
-|  +----------------------------------------------+|
-|                                                  |
-|  Historico: 0 renovacoes anteriores              |
-|                                                  |
-|       [Cancelar]    [Ativar Parceria]            |
-+--------------------------------------------------+
++----------------------------------------------------------+
+|                 Escolha seu plano                         |
+|         Todos incluem 7 dias gratis para testar          |
++----------------------------------------------------------+
+|                                                          |
+|  [Mensal] [Anual -20%]                                   |
+|                                                          |
+|  +----------------+ +----------------+ +----------------+ |
+|  |    Inicial     | |  Profissional  | |   Franquias    | |
+|  |    R$ 99/mes   | |   R$ 199/mes   | |   R$ 499/mes   | |
+|  |                | |  Recomendado   | |                | |
+|  | - 1 Unidade    | | - WhatsApp     | | - Ilimitado    | |
+|  | - 5 Profs      | | - Jackson IA   | | - Multi-loja   | |
+|  |                | | - Marketing    | |                | |
+|  | [Iniciar Trial]| |[Iniciar Trial] | |[Iniciar Trial] | |
+|  +----------------+ +----------------+ +----------------+ |
+|                                                          |
+|  Garantia de 30 dias ou seu dinheiro de volta            |
++----------------------------------------------------------+
 ```
 
-## Secao Tecnica
+## Demais Funcionalidades (Sem Mudanca)
 
-### Migracao SQL Completa
+O restante do plano original permanece:
 
-```sql
--- Campos para controle de parcerias
-ALTER TABLE public.companies
-  ADD COLUMN IF NOT EXISTS is_partner BOOLEAN DEFAULT false,
-  ADD COLUMN IF NOT EXISTS partner_started_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS partner_ends_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS partner_notes TEXT,
-  ADD COLUMN IF NOT EXISTS partner_renewed_count INTEGER DEFAULT 0;
+- Pagina de Assinatura para gerenciar plano
+- Hook useSubscription
+- Banners de status (trial, overdue, etc)
+- Edge Function delete-account
+- Webhooks para eventos do Stripe
+- Garantia de 30 dias (processo manual)
 
--- Indice para consultas de parceiros
-CREATE INDEX IF NOT EXISTS idx_companies_partner 
-  ON public.companies (is_partner, partner_ends_at);
-```
+## Ordem de Implementacao
 
-### Atualizacao do Hook useAdminCompanies
+1. Modificar `PricingSection.tsx` - passar plano na URL
+2. Modificar `Auth.tsx` - detectar plano e iniciar checkout
+3. Modificar `create-checkout-session` - adicionar trial 7 dias
+4. Criar `EscolherPlano.tsx` - pagina de escolha de plano
+5. Adicionar rota no `App.tsx`
+6. Criar `useSubscription.ts` hook
+7. Criar pagina `Assinatura.tsx`
+8. Adicionar banners de status
+9. Criar `delete-account` Edge Function
 
-```typescript
-// Nova interface
-export interface AdminCompany {
-  // ... campos existentes ...
-  is_partner: boolean | null;
-  partner_started_at: string | null;
-  partner_ends_at: string | null;
-  partner_notes: string | null;
-  partner_renewed_count: number | null;
-}
+## Resumo da Mudanca Principal
 
-// Nova mutation para ativar parceria
-const activatePartnershipMutation = useMutation({
-  mutationFn: async ({ 
-    companyId, 
-    planType, 
-    startsAt, 
-    endsAt, 
-    notes 
-  }: ActivatePartnershipParams) => {
-    const { error } = await supabase
-      .from("companies")
-      .update({
-        is_partner: true,
-        plan_status: 'partner',
-        plan_type: planType,
-        partner_started_at: startsAt,
-        partner_ends_at: endsAt,
-        partner_notes: notes,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", companyId);
-    
-    if (error) throw error;
-  },
-  onSuccess: () => {
-    toast.success("Parceria ativada com sucesso");
-    queryClient.invalidateQueries({ queryKey: ["admin-companies"] });
-  }
-});
+A mudanca chave e que:
 
-// Nova mutation para renovar parceria
-const renewPartnershipMutation = useMutation({
-  mutationFn: async ({ companyId, newEndDate, notes }) => {
-    const company = companies.find(c => c.id === companyId);
-    const { error } = await supabase
-      .from("companies")
-      .update({
-        partner_ends_at: newEndDate,
-        partner_notes: notes,
-        partner_renewed_count: (company?.partner_renewed_count || 0) + 1,
-        plan_status: 'partner',
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", companyId);
-    
-    if (error) throw error;
-  }
-});
-```
+- **"Comecar Agora"** no card do plano passa `?plan=X&billing=Y` na URL
+- **Auth.tsx** detecta esses parametros e vai direto pro Stripe apos cadastro
+- **"Testar Gratis"** (hero) vai para Auth sem parametros, depois redireciona para `/escolher-plano`
 
-### Logica de Verificacao no check-subscription
-
-```typescript
-// Verificar se e parceiro ativo
-if (company.is_partner && company.partner_ends_at) {
-  const partnerEnds = new Date(company.partner_ends_at);
-  const now = new Date();
-  
-  if (partnerEnds > now) {
-    // Parceria valida
-    return new Response(JSON.stringify({
-      subscribed: true,
-      plan_status: 'partner',
-      plan_type: company.plan_type,
-      partner_ends_at: company.partner_ends_at,
-      days_remaining: Math.ceil((partnerEnds - now) / (1000 * 60 * 60 * 24))
-    }), { headers: corsHeaders, status: 200 });
-  } else {
-    // Parceria expirou - manter dados, atualizar status
-    await supabaseClient
-      .from("companies")
-      .update({ plan_status: 'expired_partner' })
-      .eq("id", company.id);
-    
-    return new Response(JSON.stringify({
-      subscribed: false,
-      plan_status: 'expired_partner',
-      partner_expired: true,
-      partner_ended_at: company.partner_ends_at
-    }), { headers: corsHeaders, status: 200 });
-  }
-}
-```
-
-## Resumo de Arquivos
-
-### Novos Arquivos
-1. `src/components/admin/PartnershipModal.tsx` - Modal de gestao de parceria
-
-### Arquivos Modificados
-1. `src/components/admin/CompaniesTable.tsx` - Badges e acoes de parceiro
-2. `src/components/admin/CompanyDetailsModal.tsx` - Secao de info de parceria
-3. `src/hooks/useAdminCompanies.ts` - Funcoes de CRUD de parceria
-4. `supabase/functions/check-subscription/index.ts` - Verificacao de parceiro
-5. Migracao SQL para novos campos
-
-### Ordem de Implementacao
-1. Migracao SQL (adicionar campos)
-2. Atualizar hook useAdminCompanies
-3. Criar PartnershipModal
-4. Atualizar CompaniesTable
-5. Atualizar CompanyDetailsModal
-6. Atualizar check-subscription
+Isso elimina a friccao para quem ja sabe qual plano quer, enquanto ainda oferece flexibilidade para quem quer testar primeiro.
