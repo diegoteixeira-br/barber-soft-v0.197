@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
+import { SupportChatWidget } from "@/components/support/SupportChatWidget";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -19,6 +20,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <main className="flex-1 p-4 md:p-6">{children}</main>
         </SidebarInset>
       </div>
+      <SupportChatWidget />
     </SidebarProvider>
   );
 }

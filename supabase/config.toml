@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.get-company-stats]
 verify_jwt = false
+
+[functions.support-chat]
+verify_jwt = false
