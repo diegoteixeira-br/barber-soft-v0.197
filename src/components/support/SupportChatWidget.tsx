@@ -46,7 +46,20 @@ export function SupportChatWidget({ isOpen, onClose }: SupportChatWidgetProps) {
     timestamp: new Date(),
   };
 
+  const frequentQuestions = [
+    "Como registro um corte fora do horário?",
+    "Como conecto o WhatsApp?",
+    "Como funciona o programa de fidelidade?",
+    "Como vejo as comissões?",
+    "Como cadastro um novo barbeiro?",
+  ];
+
+  const handleSuggestionClick = (question: string) => {
+    sendMessage(question);
+  };
+
   const displayMessages = messages.length === 0 ? [welcomeMessage] : messages;
+  const showSuggestions = messages.length === 0 && !isLoading;
 
   return (
     <>
@@ -129,6 +142,26 @@ export function SupportChatWidget({ isOpen, onClose }: SupportChatWidgetProps) {
                   <div className="flex items-center gap-2 px-4 py-3 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span className="text-sm">Jackson está digitando...</span>
+                  </div>
+                )}
+
+                {/* Suggestion buttons */}
+                {showSuggestions && (
+                  <div className="px-4 py-3 space-y-2">
+                    <p className="text-xs text-muted-foreground mb-2">Perguntas frequentes:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {frequentQuestions.map((question, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-auto py-1.5 px-3 whitespace-normal text-left hover:bg-primary/10 hover:border-primary"
+                          onClick={() => handleSuggestionClick(question)}
+                        >
+                          {question}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
