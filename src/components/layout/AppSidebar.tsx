@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { User } from "@supabase/supabase-js";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
+import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import {
   LayoutDashboard,
   Calendar,
@@ -17,6 +18,7 @@ import {
   BarChart3,
   Headphones,
   MessageCircle,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -71,6 +73,7 @@ export function AppSidebar({ onOpenChat, isChatOpen, onOpenFeedback }: AppSideba
   const { units } = useUnits();
   const { currentUnitId, setCurrentUnitId } = useCurrentUnit();
   const { settings: businessSettings } = useBusinessSettings();
+  const { isSuperAdmin } = useSuperAdmin();
   const [user, setUser] = useState<User | null>(null);
 
   const selectedUnit = units.find((u) => u.id === currentUnitId) || units[0];
@@ -228,6 +231,20 @@ export function AppSidebar({ onOpenChat, isChatOpen, onOpenFeedback }: AppSideba
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border p-4">
+        {/* Super Admin Link - Discreet */}
+        {isSuperAdmin && (
+          <Link
+            to="/admin"
+            className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-xs transition-all ${
+              location.pathname.startsWith("/admin")
+                ? "bg-slate-700 text-white"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <Shield className="h-4 w-4" />
+            {!collapsed && <span>Super Admin</span>}
+          </Link>
+        )}
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 border border-primary/30">
             {businessSettings?.logo_url && (
