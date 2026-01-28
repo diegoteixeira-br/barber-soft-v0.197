@@ -69,6 +69,58 @@ const GENERIC_ERRORS = {
   internal: 'Erro interno',
 };
 
+// ============= PHONE NORMALIZATION UTILITIES =============
+// Gera variações de telefone para busca flexível (9º dígito)
+function getPhoneVariations(phone: string): string[] {
+  if (!phone) return [];
+  const variations: string[] = [];
+  
+  // Se tem 12 dígitos (55 + DDD + 8 dígitos locais), adicionar o 9º dígito
+  // Ex: 556599891722 -> 5565999891722
+  if (phone.length === 12 && phone.startsWith('55')) {
+    const ddd = phone.substring(2, 4);
+    const localNumber = phone.substring(4);
+    // Só adiciona 9 se o número local começa com 9 (indica celular sem 9º dígito)
+    if (localNumber.startsWith('9')) {
+      variations.push(`55${ddd}9${localNumber}`);
+    }
+  }
+  
+  // Se tem 13 dígitos com 9º dígito, tentar remover
+  // Ex: 5565999891722 -> 556599891722
+  if (phone.length === 13 && phone.startsWith('55')) {
+    const ddd = phone.substring(2, 4);
+    const localWithNine = phone.substring(4);
+    if (localWithNine.startsWith('9') && localWithNine.length === 9) {
+      variations.push(`55${ddd}${localWithNine.substring(1)}`);
+    }
+  }
+  
+  return variations;
+}
+
+// Normaliza telefone para formato padrão brasileiro (13 dígitos)
+function normalizePhoneToStandard(phone: string): string {
+  if (!phone) return phone;
+  
+  // Se já tem 13 dígitos (55 + DDD + 9 dígitos), está ok
+  if (phone.length === 13 && phone.startsWith('55')) {
+    return phone;
+  }
+  
+  // Se tem 12 dígitos (55 + DDD + 8 dígitos), adicionar 9º dígito se for celular
+  if (phone.length === 12 && phone.startsWith('55')) {
+    const ddd = phone.substring(2, 4);
+    const localNumber = phone.substring(4);
+    // Celulares começam com 9 após o DDD
+    if (localNumber.startsWith('9')) {
+      return `55${ddd}9${localNumber}`;
+    }
+  }
+  
+  return phone;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
@@ -1266,9 +1318,10 @@ async function handleCheckClient(supabase: any, body: any, corsHeaders: any) {
     );
   }
 
-  console.log(`Checking client with phone: ${clientPhone}, unit: ${unit_id}`);
+  console.log(`Checking client with phone: ${clientPhone} (${clientPhone.length} digits), unit: ${unit_id}`);
 
-  const { data: client, error: clientError } = await supabase
+  // BUSCA EXATA primeiro
+  let { data: client, error: clientError } = await supabase
     .from('clients')
     .select('id, name, phone, birth_date, notes, tags, total_visits, last_visit_at, created_at')
     .eq('unit_id', unit_id)
@@ -1283,8 +1336,34 @@ async function handleCheckClient(supabase: any, body: any, corsHeaders: any) {
     );
   }
 
+  // Se não encontrou, tentar variações de telefone (9º dígito)
   if (!client) {
-    console.log(`Cliente não encontrado para telefone: ${clientPhone}`);
+    const variations = getPhoneVariations(clientPhone);
+    console.log(`Cliente não encontrado com busca exata. Tentando ${variations.length} variações:`, variations);
+    
+    for (const variation of variations) {
+      const { data: foundClient, error: variationError } = await supabase
+        .from('clients')
+        .select('id, name, phone, birth_date, notes, tags, total_visits, last_visit_at, created_at')
+        .eq('unit_id', unit_id)
+        .eq('phone', variation)
+        .maybeSingle();
+      
+      if (variationError) {
+        console.error(`Error fetching client with variation ${variation}:`, variationError);
+        continue;
+      }
+      
+      if (foundClient) {
+        console.log(`✅ Cliente encontrado com variação ${variation}:`, foundClient.name);
+        client = foundClient;
+        break;
+      }
+    }
+  }
+
+  if (!client) {
+    console.log(`❌ Cliente não encontrado para telefone: ${clientPhone} (nem variações)`);
     return new Response(
       JSON.stringify({
         status: "nao_encontrado",
@@ -1368,11 +1447,15 @@ async function handleRegisterClient(supabase: any, body: any, corsHeaders: any) 
   // Normalizar campos
   const clientName = body.nome || body.client_name;
   const rawPhone = body.telefone || body.client_phone;
-  const clientPhone = rawPhone?.replace(/\D/g, '') || null;
+  // Normalizar para formato padrão (13 dígitos com 9º dígito)
+  const rawNormalized = rawPhone?.replace(/\D/g, '') || null;
+  const clientPhone = rawNormalized ? normalizePhoneToStandard(rawNormalized) : null;
   const clientBirthDate = body.data_nascimento || body.birth_date || null;
   const clientNotes = body.observacoes || body.notes || null;
   const clientTags = body.tags || ['Novo'];
   const { unit_id, company_id } = body;
+  
+  console.log(`Raw phone: ${rawPhone}, normalized: ${rawNormalized}, final: ${clientPhone}`);
 
   // Validações
   if (!clientName) {
