@@ -7,7 +7,9 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { SuperAdminGuard } from "@/components/auth/SuperAdminGuard";
+import { SubscriptionGuard } from "@/components/auth/SubscriptionGuard";
 import { UnitProvider } from "@/contexts/UnitContext";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
 import BarberAuth from "./pages/BarberAuth";
@@ -54,22 +56,26 @@ import AgendaDisplay from "./pages/AgendaDisplay";
 import Assinatura from "./pages/Assinatura";
 
 const ProtectedRoutes = () => (
-  <UnitProvider>
-    <Routes>
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/agenda" element={<Agenda />} />
-      <Route path="/agenda/display" element={<AgendaDisplay />} />
-      <Route path="/clientes" element={<Clientes />} />
-      <Route path="/profissionais" element={<Profissionais />} />
-      <Route path="/servicos" element={<Servicos />} />
-      <Route path="/financeiro" element={<Financeiro />} />
-      <Route path="/unidades" element={<Unidades />} />
-      <Route path="/marketing" element={<Marketing />} />
-      <Route path="/relatorios" element={<Relatorios />} />
-      <Route path="/configuracoes" element={<Configuracoes />} />
-      <Route path="/assinatura" element={<Assinatura />} />
-    </Routes>
-  </UnitProvider>
+  <SubscriptionProvider>
+    <SubscriptionGuard>
+      <UnitProvider>
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/agenda" element={<Agenda />} />
+          <Route path="/agenda/display" element={<AgendaDisplay />} />
+          <Route path="/clientes" element={<Clientes />} />
+          <Route path="/profissionais" element={<Profissionais />} />
+          <Route path="/servicos" element={<Servicos />} />
+          <Route path="/financeiro" element={<Financeiro />} />
+          <Route path="/unidades" element={<Unidades />} />
+          <Route path="/marketing" element={<Marketing />} />
+          <Route path="/relatorios" element={<Relatorios />} />
+          <Route path="/configuracoes" element={<Configuracoes />} />
+          <Route path="/assinatura" element={<Assinatura />} />
+        </Routes>
+      </UnitProvider>
+    </SubscriptionGuard>
+  </SubscriptionProvider>
 );
 
 const App = () => (
