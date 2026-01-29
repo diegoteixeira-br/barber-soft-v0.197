@@ -1,175 +1,117 @@
 
-# Plano: Correção da Busca de Clientes na API
 
-## Diagnóstico do Problema
+# Plano: Corrigir Busca de Cliente no handleCreate
 
-### O que está acontecendo
+## Problema Identificado
 
-O cliente **Diego Teixeira** existe no banco com o telefone `5565999891722` (13 dígitos), mas a API está buscando por `556599891722` (12 dígitos) - falta o nono dígito!
-
-| Origem | Telefone | Comprimento |
-|--------|----------|-------------|
-| WhatsApp (enviado) | `556599891722` | 12 dígitos |
-| Banco de dados | `5565999891722` | 13 dígitos |
-
-A diferença está no **nono dígito** (`9` extra no celular):
-- Enviado: `55` + `65` + `99891722` = 12 dígitos (8 dígitos locais)
-- Salvo: `55` + `65` + `999891722` = 13 dígitos (9 dígitos locais)
-
-### Por que isso acontece
-
-O WhatsApp Evolution API retorna o número no formato internacional, mas alguns números de celular antigos podem estar sem o nono dígito de prefixo. 
-
-No Brasil:
-- Celulares com DDD têm **9 dígitos locais** (começando com 9)
-- Fixos têm **8 dígitos locais**
-
-O problema é que a busca atual faz uma comparação **exata** (`eq('phone', clientPhone)`), então se os formatos forem diferentes, não encontra.
-
-### Situação atual no banco
-- **47 clientes** com 13 dígitos (formato correto com nono dígito)
-- **3 clientes** com 12 dígitos (sem nono dígito - formato antigo ou incorreto)
-
-## Solução Proposta
-
-### Parte 1: Busca Flexível na Edge Function
-
-Modificar a função `handleCheckClient` para fazer uma busca mais inteligente:
-
-1. **Normalizar o telefone de busca** para garantir formato consistente
-2. **Buscar com variações** quando a busca exata falhar:
-   - Se o número tem 12 dígitos (faltando 9º dígito), também buscar adicionando o "9" após o DDD
-   - Se o número tem 13 dígitos, também buscar removendo o "9" após o DDD
+A função `handleCreate` (linha 679) usa busca **exata** para encontrar clientes, ignorando as variações de telefone (9º dígito):
 
 ```typescript
-async function handleCheckClient(supabase, body, corsHeaders) {
-  const rawPhone = body.telefone || body.client_phone;
-  const clientPhone = rawPhone?.replace(/\D/g, '') || null;
-  const { unit_id } = body;
+// PROBLEMA: Busca exata sem variações
+.eq('phone', clientPhone)
+```
 
-  // ... validações ...
+Enquanto o `handleCheckClient` já foi corrigido para usar `getPhoneVariations`, o `handleCreate` ainda não foi atualizado.
 
+### Fluxo Atual (Incorreto)
+
+```text
+WhatsApp envia: 556599891722 (12 dígitos)
+         ↓
+handleCreate busca exata: NÃO ENCONTRA
+(banco tem: 5565999891722 - 13 dígitos)
+         ↓
+Cria NOVO cliente duplicado
+         ↓
+Cria agendamento com cliente errado
+```
+
+## Solução
+
+Aplicar a mesma lógica de busca flexível do `handleCheckClient` no `handleCreate`.
+
+### Alterações no arquivo `supabase/functions/agenda-api/index.ts`
+
+**Modificar a busca de cliente existente (linhas 673-725):**
+
+Substituir a busca exata atual por busca com variações:
+
+```typescript
+if (clientPhone) {
+  let existingClient = null;
+  
   // BUSCA EXATA primeiro
-  let { data: client } = await supabase
+  const { data: exactMatch, error: clientFetchError } = await supabase
     .from('clients')
-    .select(...)
+    .select('id, name, phone, birth_date, notes, tags, total_visits')
     .eq('unit_id', unit_id)
     .eq('phone', clientPhone)
     .maybeSingle();
 
-  // Se não encontrou, tentar variações
-  if (!client) {
+  if (clientFetchError) {
+    console.error('Error fetching client:', clientFetchError);
+  }
+  
+  existingClient = exactMatch;
+
+  // Se não encontrou, tentar VARIAÇÕES de telefone (9º dígito)
+  if (!existingClient) {
     const variations = getPhoneVariations(clientPhone);
+    console.log(`Cliente não encontrado com busca exata. Tentando ${variations.length} variações:`, variations);
     
     for (const variation of variations) {
-      const { data: foundClient } = await supabase
+      const { data: foundClient, error: variationError } = await supabase
         .from('clients')
-        .select(...)
+        .select('id, name, phone, birth_date, notes, tags, total_visits')
         .eq('unit_id', unit_id)
         .eq('phone', variation)
         .maybeSingle();
       
+      if (variationError) {
+        console.error(`Erro buscando variação ${variation}:`, variationError);
+        continue;
+      }
+      
       if (foundClient) {
-        client = foundClient;
+        console.log(`✅ Cliente encontrado com variação ${variation}:`, foundClient.name);
+        existingClient = foundClient;
         break;
       }
     }
   }
-  
-  // ... resto da lógica ...
-}
 
-function getPhoneVariations(phone) {
-  const variations = [];
-  
-  // Se tem 12 dígitos (55 + DDD + 8 dígitos), adicionar o 9
-  // Ex: 556599891722 -> 5565999891722
-  if (phone.length === 12 && phone.startsWith('55')) {
-    const ddd = phone.substring(2, 4);
-    const localNumber = phone.substring(4);
-    variations.push(`55${ddd}9${localNumber}`);
+  if (existingClient) {
+    console.log('Cliente existente encontrado:', existingClient.name);
+    // Usar dados do cliente existente (sem criar novo)
+    clientData = existingClient;
+  } else {
+    // Só cria novo se realmente não existe
+    // ... código de criação existente ...
   }
-  
-  // Se tem 13 dígitos com 9 extra, remover o 9
-  // Ex: 5565999891722 -> 556599891722
-  if (phone.length === 13 && phone.startsWith('55')) {
-    const ddd = phone.substring(2, 4);
-    const localWithNine = phone.substring(4);
-    if (localWithNine.startsWith('9')) {
-      variations.push(`55${ddd}${localWithNine.substring(1)}`);
-    }
-  }
-  
-  return variations;
 }
 ```
 
-### Parte 2: Normalização dos Dados Existentes (Migration)
+## Resultado Esperado
 
-Corrigir os 3 clientes que estão com 12 dígitos adicionando o nono dígito:
-
-```sql
--- Adiciona o 9º dígito para celulares que estão com apenas 8 dígitos locais
-UPDATE public.clients
-SET 
-  phone = SUBSTR(phone, 1, 4) || '9' || SUBSTR(phone, 5),
-  updated_at = NOW()
-WHERE phone IS NOT NULL
-  AND LENGTH(phone) = 12
-  AND phone LIKE '55%'
-  -- Garantir que é celular (começa com 9 após o DDD)
-  AND SUBSTR(phone, 5, 1) = '9';
+```text
+WhatsApp envia: 556599891722 (12 dígitos)
+         ↓
+handleCreate busca exata: NÃO ENCONTRA
+         ↓
+Tenta variação: 5565999891722
+         ↓
+✅ ENCONTRA cliente existente
+         ↓
+Usa dados do cliente existente para agendamento
+         ↓
+Agendamento criado com cliente correto!
 ```
 
-### Parte 3: Aplicar Mesma Lógica no `handleRegisterClient`
-
-Para evitar futuros problemas, normalizar o telefone ao cadastrar novos clientes.
-
-## Resumo das Alterações
+## Resumo
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `supabase/functions/agenda-api/index.ts` | Adicionar função `getPhoneVariations` e atualizar `handleCheckClient` para buscar com variações |
-| Nova migration SQL | Normalizar telefones existentes com 12 dígitos |
+| `supabase/functions/agenda-api/index.ts` | Adicionar busca com variações no `handleCreate` (linhas 673-725) |
 
-## Fluxo Após a Correção
+A mesma função `getPhoneVariations` que já existe no código será reutilizada, garantindo consistência entre `handleCheckClient` e `handleCreate`.
 
-```text
-WhatsApp envia: 556599891722
-         ↓
-     Busca exata
-         ↓
-   Não encontrado
-         ↓
-  Tenta variação: 5565999891722
-         ↓
-   ✅ ENCONTRADO!
-```
-
----
-
-## Seção Técnica
-
-### Lógica de Variação de Telefone
-
-A função `getPhoneVariations` cria variações inteligentes:
-
-| Input (12 dígitos) | Variação (13 dígitos) |
-|--------------------|----------------------|
-| `556599891722` | `5565999891722` |
-| `552195265119` | `5521995265119` |
-
-| Input (13 dígitos) | Variação (12 dígitos) |
-|--------------------|----------------------|
-| `5565999891722` | `556599891722` |
-
-### Por que não usar LIKE na busca?
-
-- **Performance**: `LIKE` com wildcard no início (`%phone`) não usa índice
-- **Precisão**: Poderia retornar falsos positivos
-
-### Por que buscar variações sequencialmente?
-
-- A maioria das buscas vai encontrar na primeira tentativa (busca exata)
-- Apenas casos edge (números antigos) precisam das variações
-- Mínimo impacto na performance
