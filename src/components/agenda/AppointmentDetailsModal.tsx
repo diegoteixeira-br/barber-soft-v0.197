@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Phone, User, Scissors, Clock, DollarSign, Calendar, Edit, Trash2, CheckCircle, XCircle, Cake, UserX, AlertTriangle } from "lucide-react";
+import { Phone, User, Scissors, Clock, DollarSign, Calendar, Edit, Trash2, CheckCircle, XCircle, UserX, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -167,12 +167,6 @@ export function AppointmentDetailsModal({
               </div>
             )}
 
-            {appointment.client_birth_date && (
-              <div className="flex items-center gap-3 text-sm">
-                <Cake className="h-4 w-4 text-muted-foreground" />
-                <span>{appointment.client_birth_date.split('-').reverse().join('/')}</span>
-              </div>
-            )}
 
             {appointment.barber && (
               <div className="flex items-center gap-3 text-sm">
