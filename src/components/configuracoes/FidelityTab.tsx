@@ -105,7 +105,7 @@ export function FidelityTab() {
                 />
               </div>
               <p className="text-sm text-muted-foreground">
-                Apenas serviços acima de R$ {minValue.toFixed(2).replace('.', ',')} contam como corte
+                Serviços a partir de R$ {minValue.toFixed(2).replace('.', ',')} contam como corte
               </p>
             </div>
 
@@ -114,7 +114,7 @@ export function FidelityTab() {
               <AlertDescription className="text-sm">
                 <strong>Como funciona:</strong>
                 <ul className="mt-2 ml-4 list-disc space-y-1">
-                  <li>Apenas serviços acima de R$ {minValue.toFixed(2).replace('.', ',')} contam como corte</li>
+                  <li>Serviços a partir de R$ {minValue.toFixed(2).replace('.', ',')} contam como corte</li>
                   <li>Cortesias (manuais ou de fidelidade) NÃO contam</li>
                   <li>Cortes de dependentes (filhos, familiares) contam para o cliente titular</li>
                   <li>Ao atingir {threshold} cortes, 1 cortesia é creditada automaticamente</li>
