@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,13 +36,15 @@ import {
   ExternalLink,
   AlertTriangle,
   Trash2,
-  XCircle
+  XCircle,
+  Lock
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useFeedback } from "@/hooks/useFeedback";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -50,6 +53,7 @@ export function AccountTab() {
   const { toast } = useToast();
   const { isSuperAdmin } = useSuperAdmin();
   const { status, isLoading: subscriptionLoading, openCustomerPortal } = useSubscription();
+  const { settings, setDeletionPassword: saveDeletionPassword, disableDeletionPassword, isLoading: settingsLoading } = useBusinessSettings();
   
   // Security state
   const [email, setEmail] = useState<string | null>(null);
@@ -60,6 +64,12 @@ export function AccountTab() {
   const [isOpeningPortal, setIsOpeningPortal] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  
+  // Deletion password state
+  const [deletionPasswordEnabled, setDeletionPasswordEnabled] = useState(false);
+  const [deletionPasswordInput, setDeletionPasswordInput] = useState("");
+  const [confirmDeletionPassword, setConfirmDeletionPassword] = useState("");
+  const [savingDeletionPassword, setSavingDeletionPassword] = useState(false);
   
   // Feedback state
   const [feedbackType, setFeedbackType] = useState<'feedback' | 'bug' | 'suggestion'>('feedback');
@@ -73,6 +83,13 @@ export function AccountTab() {
     };
     getUser();
   }, []);
+
+  // Sync deletion password enabled state with settings
+  useEffect(() => {
+    if (settings) {
+      setDeletionPasswordEnabled(settings.deletion_password_enabled ?? false);
+    }
+  }, [settings]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +151,68 @@ export function AccountTab() {
         }
       }
     );
+  };
+
+  const handleSaveDeletionPassword = async () => {
+    if (deletionPasswordInput.length < 4 || deletionPasswordInput.length > 6) {
+      toast({
+        title: "Senha inválida",
+        description: "A senha deve ter entre 4 e 6 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!/^\d+$/.test(deletionPasswordInput)) {
+      toast({
+        title: "Senha inválida",
+        description: "A senha deve conter apenas números.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (deletionPasswordInput !== confirmDeletionPassword) {
+      toast({
+        title: "Senhas não coincidem",
+        description: "A senha e a confirmação devem ser iguais.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingDeletionPassword(true);
+    const success = await saveDeletionPassword(deletionPasswordInput);
+    setSavingDeletionPassword(false);
+
+    if (success) {
+      toast({
+        title: "Senha de exclusão salva",
+        description: "A proteção foi ativada com sucesso.",
+      });
+      setDeletionPasswordInput("");
+      setConfirmDeletionPassword("");
+      setDeletionPasswordEnabled(true);
+    }
+  };
+
+  const handleToggleDeletionPassword = async (enabled: boolean) => {
+    if (!enabled) {
+      setSavingDeletionPassword(true);
+      const success = await disableDeletionPassword();
+      setSavingDeletionPassword(false);
+      
+      if (success) {
+        setDeletionPasswordEnabled(false);
+        toast({
+          title: "Proteção desativada",
+          description: "A senha de exclusão foi desativada.",
+        });
+      }
+    } else {
+      // Just update local state, password will be set when saved
+      setDeletionPasswordEnabled(true);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -372,6 +451,84 @@ export function AccountTab() {
               Alterar Senha
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Deletion Password Card */}
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-primary" />
+            Senha de Exclusão
+          </CardTitle>
+          <CardDescription>
+            Proteja a exclusão de agendamentos confirmados/finalizados com uma senha numérica
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="deletion-password-toggle" className="text-sm font-medium">
+                Exigir senha para excluir
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Impede que colaboradores excluam agendamentos sem autorização
+              </p>
+            </div>
+            <Switch
+              id="deletion-password-toggle"
+              checked={deletionPasswordEnabled}
+              onCheckedChange={handleToggleDeletionPassword}
+              disabled={savingDeletionPassword}
+            />
+          </div>
+          
+          {deletionPasswordEnabled && (
+            <>
+              <Separator />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="deletion-password">Nova Senha (4-6 dígitos)</Label>
+                  <Input
+                    id="deletion-password"
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={deletionPasswordInput}
+                    onChange={(e) => setDeletionPasswordInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••••"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-deletion-password">Confirmar Senha</Label>
+                  <Input
+                    id="confirm-deletion-password"
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={confirmDeletionPassword}
+                    onChange={(e) => setConfirmDeletionPassword(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••••"
+                  />
+                </div>
+                <Button 
+                  onClick={handleSaveDeletionPassword}
+                  disabled={savingDeletionPassword || !deletionPasswordInput || !confirmDeletionPassword}
+                  className="w-full"
+                >
+                  {savingDeletionPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Salvar Senha
+                </Button>
+                {settings?.deletion_password_hash && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    ✓ Senha configurada. Preencha os campos acima para alterar.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

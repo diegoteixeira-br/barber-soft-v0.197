@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Phone, User, Scissors, Clock, DollarSign, Calendar, Edit, Trash2, CheckCircle, XCircle, UserX, AlertTriangle } from "lucide-react";
+import { Phone, User, Scissors, Clock, DollarSign, Calendar, Edit, Trash2, CheckCircle, XCircle, UserX, AlertTriangle, Lock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { StatusBadge, getNextStatus } from "./StatusBadge";
 import { PaymentMethodModal, type PaymentMethod } from "@/components/financeiro/PaymentMethodModal";
@@ -41,16 +43,20 @@ export function AppointmentDetailsModal({
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isDeleteWithReasonOpen, setIsDeleteWithReasonOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
+  const [deletionPasswordInput, setDeletionPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
   const [availableCourtesies, setAvailableCourtesies] = useState(0);
   const [isFreeCut, setIsFreeCut] = useState(false);
   const [loyaltyCuts, setLoyaltyCuts] = useState(0);
   const courtesiesBeforeRef = useRef<number>(0);
   
   const { toast } = useToast();
-  const { settings } = useBusinessSettings();
+  const { settings, verifyDeletionPassword } = useBusinessSettings();
   const { useCourtesy, getClientCourtesies, checkIfNextCutIsFree, checkCycleCompletion } = useFidelityCourtesy();
   const fidelityEnabled = settings?.fidelity_program_enabled ?? false;
   const fidelityThreshold = settings?.fidelity_cuts_threshold ?? 5;
+  const deletionPasswordRequired = settings?.deletion_password_enabled ?? false;
 
   // Fetch client's available courtesies and check if this is a free cut
   useEffect(() => {
@@ -325,7 +331,14 @@ export function AppointmentDetailsModal({
       />
 
       {/* Delete with Reason Modal - for confirmed/completed appointments */}
-      <Dialog open={isDeleteWithReasonOpen} onOpenChange={setIsDeleteWithReasonOpen}>
+      <Dialog open={isDeleteWithReasonOpen} onOpenChange={(open) => {
+        setIsDeleteWithReasonOpen(open);
+        if (!open) {
+          setDeleteReason("");
+          setDeletionPasswordInput("");
+          setPasswordError(false);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -334,28 +347,89 @@ export function AppointmentDetailsModal({
             </DialogTitle>
             <DialogDescription>
               Este agendamento já foi {appointment.status === "completed" ? "finalizado" : "confirmado"}.
-              A exclusão será registrada para auditoria financeira. Informe o motivo:
+              A exclusão será registrada para auditoria financeira.
             </DialogDescription>
           </DialogHeader>
-          <Textarea 
-            placeholder="Motivo da exclusão (obrigatório)"
-            value={deleteReason}
-            onChange={(e) => setDeleteReason(e.target.value)}
-            className="min-h-[100px]"
-          />
+          
+          <div className="space-y-4">
+            {/* Password field - only if enabled */}
+            {deletionPasswordRequired && (
+              <div className="space-y-2">
+                <Label htmlFor="deletion-password" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Senha de Exclusão
+                </Label>
+                <Input
+                  id="deletion-password"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={deletionPasswordInput}
+                  onChange={(e) => {
+                    setDeletionPasswordInput(e.target.value.replace(/\D/g, ''));
+                    setPasswordError(false);
+                  }}
+                  placeholder="Digite a senha numérica"
+                  className={passwordError ? "border-destructive" : ""}
+                />
+                {passwordError && (
+                  <p className="text-sm text-destructive">Senha incorreta</p>
+                )}
+              </div>
+            )}
+            
+            {/* Reason field */}
+            <div className="space-y-2">
+              <Label htmlFor="delete-reason">Motivo da exclusão (obrigatório)</Label>
+              <Textarea 
+                id="delete-reason"
+                placeholder="Informe o motivo da exclusão..."
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteWithReasonOpen(false)}>
               Cancelar
             </Button>
             <Button 
               variant="destructive" 
-              disabled={!deleteReason.trim() || isLoading}
-              onClick={() => {
+              disabled={
+                !deleteReason.trim() || 
+                isLoading || 
+                isVerifyingPassword || 
+                (deletionPasswordRequired && !deletionPasswordInput)
+              }
+              onClick={async () => {
+                // Verify password if required
+                if (deletionPasswordRequired) {
+                  setIsVerifyingPassword(true);
+                  const isValid = await verifyDeletionPassword(deletionPasswordInput);
+                  setIsVerifyingPassword(false);
+                  
+                  if (!isValid) {
+                    setPasswordError(true);
+                    toast({
+                      title: "Senha incorreta",
+                      description: "A senha de exclusão está incorreta.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                }
+                
                 onDelete(deleteReason.trim());
                 setIsDeleteWithReasonOpen(false);
+                setDeleteReason("");
+                setDeletionPasswordInput("");
+                setPasswordError(false);
               }}
             >
-              Confirmar Exclusão
+              {isVerifyingPassword ? "Verificando..." : "Confirmar Exclusão"}
             </Button>
           </DialogFooter>
         </DialogContent>

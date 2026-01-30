@@ -19,6 +19,8 @@ export interface BusinessSettings {
   fidelity_program_enabled: boolean | null;
   fidelity_cuts_threshold: number | null;
   fidelity_min_value: number | null;
+  deletion_password_hash: string | null;
+  deletion_password_enabled: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -38,6 +40,17 @@ export interface BusinessSettingsInput {
   fidelity_program_enabled?: boolean | null;
   fidelity_cuts_threshold?: number | null;
   fidelity_min_value?: number | null;
+  deletion_password_hash?: string | null;
+  deletion_password_enabled?: boolean | null;
+}
+
+// Utility function to hash password using SHA-256
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export function useBusinessSettings() {
@@ -163,11 +176,50 @@ export function useBusinessSettings() {
     }
   };
 
+  // Function to set deletion password (hashes and saves)
+  const setDeletionPassword = async (password: string): Promise<boolean> => {
+    try {
+      const hash = await hashPassword(password);
+      await updateSettings.mutateAsync({
+        deletion_password_hash: hash,
+        deletion_password_enabled: true,
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Function to verify deletion password
+  const verifyDeletionPassword = async (inputPassword: string): Promise<boolean> => {
+    if (!settings?.deletion_password_enabled || !settings?.deletion_password_hash) {
+      return true; // No password required
+    }
+    const inputHash = await hashPassword(inputPassword);
+    return inputHash === settings.deletion_password_hash;
+  };
+
+  // Function to disable deletion password
+  const disableDeletionPassword = async (): Promise<boolean> => {
+    try {
+      await updateSettings.mutateAsync({
+        deletion_password_enabled: false,
+        deletion_password_hash: null,
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
   return {
     settings,
     isLoading,
     updateSettings,
     uploadLogo,
     testWebhook,
+    setDeletionPassword,
+    verifyDeletionPassword,
+    disableDeletionPassword,
   };
 }
