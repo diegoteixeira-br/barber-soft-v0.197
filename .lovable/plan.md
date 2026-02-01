@@ -1,155 +1,150 @@
 
 
-# Plano: Mensagens Padrao Editaveis nas Automacoes de Marketing
+# Plano: Programa de Fidelidade por Unidade + Icone de Configuracao Visivel
 
-## Resumo do Pedido
+## Resumo do Problema
 
-O usuario quer que:
-1. As mensagens de template (Aniversario, Resgate, Lembrete) fiquem **sempre editaveis**, mesmo quando a automacao estiver desativada
-2. As mensagens tenham os **valores padrao** que ele especificou
-3. Na mensagem de Lembrete, as palavras **CONFIRMADO** e **CANCELAR** sejam fixas e nao editaveis
+1. **Fidelidade global nao funciona bem** - Cada unidade pode ter regras diferentes de fidelidade
+2. **Menu de opcoes escondido** - O botao de tres pontinhos so aparece no hover, dificultando o acesso
 
 ---
 
 ## Solucao Proposta
 
-### 1. Remover Restricao de Edicao
+### Parte 1: Mover Fidelidade para Unidades
 
-Atualmente, os textareas ficam desabilitados (`disabled={!birthdayEnabled}`) quando o switch esta desligado. 
+**Migracao de Banco de Dados**
 
-**Mudanca:** Remover o atributo `disabled` de TODOS os textareas de mensagem.
+Adicionar 3 colunas na tabela `units`:
 
-### 2. Definir Valores Padrao das Mensagens
+| Coluna | Tipo | Padrao | Descricao |
+|--------|------|--------|-----------|
+| fidelity_program_enabled | boolean | false | Ativar programa |
+| fidelity_cuts_threshold | integer | 10 | Cortes para ganhar cortesia |
+| fidelity_min_value | numeric | 30.00 | Valor minimo do servico |
 
-Quando as configuracoes carregarem vazias, usar os textos fornecidos pelo usuario:
+**Atualizar Trigger do Banco**
 
-| Campo | Mensagem Padrao |
-|-------|-----------------|
-| Aniversario | "Salve {{nome}}! Hoje o dia e todo seu! ..." |
-| Resgate | "E ai {{nome}}, sumido hein! ..." |
-| Lembrete (editavel) | "Ola {{nome}}! ... Tmj" |
-| Lembrete (fixo) | "CONFIRMADO / CANCELAR" - nao editavel |
-
-### 3. Estrutura Especial para Lembrete
-
-Para proteger as palavras CONFIRMADO e CANCELAR, vou dividir a mensagem de lembrete em duas partes:
+O trigger `sync_client_on_appointment_complete` sera alterado para buscar as configuracoes de fidelidade da tabela `units` em vez de `business_settings`:
 
 ```text
-┌─────────────────────────────────────────────────────┐
-│  PARTE EDITAVEL (textarea)                          │
-│  "Ola {{nome}}! Lembrando do seu agendamento..."    │
-└─────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────┐
-│  PARTE FIXA (texto readonly cinza)                  │
-│  "Para o sistema reconhecer, responda apenas:       │
-│   CONFIRMADO / CANCELAR"                            │
-└─────────────────────────────────────────────────────┘
+ANTES (business_settings):
+SELECT fidelity_program_enabled, fidelity_cuts_threshold, fidelity_min_value
+FROM business_settings WHERE user_id = owner_id
+
+DEPOIS (units):
+SELECT fidelity_program_enabled, fidelity_cuts_threshold, fidelity_min_value
+FROM units WHERE id = NEW.unit_id
 ```
 
-A mensagem final enviada sera: `PARTE_EDITAVEL + "\n\n" + PARTE_FIXA`
+### Parte 2: Nova Interface do UnitCard
+
+**Layout Atual:**
+```text
+┌─────────────────────────────────────────┐
+│ 🏢 Nome da Unidade       [⋮] <- hover   │
+│ 📍 Endereco                              │
+│ 📞 Telefone                              │
+│ 👤 Gerente                               │
+│ [Conectar WhatsApp]                      │
+└─────────────────────────────────────────┘
+```
+
+**Layout Novo:**
+```text
+┌─────────────────────────────────────────┐
+│ 🏢 Nome da Unidade       [⚙️] [⋮]       │
+│ 📍 Endereco              <- sempre visivel│
+│ 📞 Telefone                              │
+│ 👤 Gerente                               │
+│ 🎁 Fidelidade: Ativo (5 cortes)         │
+│ [Conectar WhatsApp]                      │
+└─────────────────────────────────────────┘
+```
+
+Mudancas:
+- Icone de engrenagem **sempre visivel** (nao precisa hover)
+- Badge de status da fidelidade no card
+- Menu de tres pontinhos mantem editar/excluir
+
+### Parte 3: Modal de Configuracoes da Unidade
+
+Criar `UnitSettingsModal.tsx` com as configuracoes de fidelidade:
+
+```text
+┌─────────────────────────────────────────┐
+│ ⚙️ Configuracoes - [Nome da Unidade]    │
+├─────────────────────────────────────────┤
+│                                          │
+│ 🎁 PROGRAMA DE FIDELIDADE               │
+│ ┌─────────────────────────────────────┐ │
+│ │ Ativar programa    [======●]       │ │
+│ └─────────────────────────────────────┘ │
+│                                          │
+│ Cortes para ganhar cortesia: [10]       │
+│ A cada 10 cortes, cliente ganha 1 gratis │
+│                                          │
+│ Valor minimo do servico: R$ [30,00]     │
+│ Servicos a partir deste valor contam    │
+│                                          │
+│ ℹ️ Como funciona:                        │
+│ • Servicos >= R$ 30 contam como corte   │
+│ • Cortesias nao contam                   │
+│ • Dependentes contam para o titular     │
+│ • Ao atingir 10 cortes, 1 cortesia      │
+│                                          │
+│             [Cancelar] [Salvar]          │
+└─────────────────────────────────────────┘
+```
+
+### Parte 4: Remover do Configuracoes Global
+
+Remover a aba "Fidelidade" da pagina de Configuracoes, ja que agora e por unidade.
+
+Tabs que ficam:
+- Perfil
+- Horarios
+- ~~Fidelidade~~ (removida)
+- Notificacoes
+- Taxas
+- Termos
+- Cancelamento
+- Conta
 
 ---
 
-## Mensagens Padrao Completas
-
-### Aniversario
-```text
-Salve {{nome}}! Hoje o dia é todo seu! 🥳
-
-👏 Passando aqui pra te desejar um feliz aniversário e tudo de melhor. 
-
-Que você continue com essa vibe gente boa de sempre! Sucesso, meu parceiro! 
-
-Quando quiser comemorar com aquele visual na régua, tamos aqui. 🍾✂️ 
-
-Que tal aproveitar e já marcar seu horário? Manda um alô aqui que eu vejo a agenda pra você! 📅
-
-(Se preferir não receber nossos avisos, digite SAIR. Tmj)
-```
-
-### Resgate
-```text
-E aí {{nome}}, sumido hein! 
-
-👀 Rapaz, a gente tava aqui comentando... faz tempo que você não aparece! 
-
-A cadeira tá sentindo sua falta e a resenha também. 😂 Bora renovar esse visual e colocar o papo em dia? 
-
-O café tá quente e a tesoura tá afiada te esperando. ☕✂️ 
-
-Que tal aproveitar e já marcar seu horário? Manda um alô aqui que eu vejo a agenda pra você! 📅
-
-(Se não quiser receber esses toques, digite SAIR. Sem stress, a amizade continua! até mais👊)
-```
-
-### Lembrete (Parte Editavel)
-```text
-Olá {{nome}}! 👋
-
-Lembrando do seu agendamento para HOJE às {{horario}} com {{profissional}}.
-
-📍 {{servico}}
-
-Aguardamos você! Se precisar remarcar, entre em contato. Tmj 💈
-```
-
-### Lembrete (Parte Fixa - NAO EDITAVEL)
-```text
-👇 Para o sistema reconhecer, responda apenas:
-
-📌 *CONFIRMADO* para confirmar presença
-
-📌 *CANCELAR* se não puder comparecer
-```
-
----
-
-## Mudancas Tecnicas
-
-### Arquivo: src/components/marketing/AutomationsTab.tsx
-
-1. **Definir constantes com valores padrao**
-```typescript
-const DEFAULT_BIRTHDAY_MESSAGE = `Salve {{nome}}! Hoje o dia é todo seu! 🥳...`;
-const DEFAULT_RESCUE_MESSAGE = `E aí {{nome}}, sumido hein!...`;
-const DEFAULT_REMINDER_MESSAGE = `Olá {{nome}}! 👋...`;
-const FIXED_REMINDER_SUFFIX = `👇 Para o sistema reconhecer...`;
-```
-
-2. **Usar valores padrao no useEffect**
-```typescript
-setBirthdayMessage(settings.birthday_message_template || DEFAULT_BIRTHDAY_MESSAGE);
-setRescueMessage(settings.rescue_message_template || DEFAULT_RESCUE_MESSAGE);
-setReminderMessage(settings.appointment_reminder_template || DEFAULT_REMINDER_MESSAGE);
-```
-
-3. **Remover `disabled` dos textareas**
-```diff
-- disabled={!birthdayEnabled}
-+ // sempre editavel
-```
-
-4. **Adicionar bloco fixo no Lembrete**
-Mostrar a parte fixa abaixo do textarea como um card cinza readonly.
-
-5. **Concatenar no save**
-```typescript
-appointment_reminder_template: reminderMessage + "\n\n" + FIXED_REMINDER_SUFFIX,
-```
-
----
-
-## Arquivos Modificados
+## Arquivos a Modificar
 
 | Arquivo | Mudanca |
 |---------|---------|
-| src/components/marketing/AutomationsTab.tsx | Valores padrao, remover disabled, parte fixa do lembrete |
+| **Migracao SQL** | Adicionar colunas fidelity_* na tabela units |
+| **Migracao SQL** | Atualizar trigger para ler de units |
+| src/hooks/useUnits.ts | Adicionar campos fidelity ao tipo Unit |
+| src/components/units/UnitCard.tsx | Adicionar botao de engrenagem visivel + badge fidelidade |
+| src/components/units/UnitSettingsModal.tsx | **NOVO** - Modal com config de fidelidade |
+| src/pages/Unidades.tsx | Adicionar estado e handlers para settings modal |
+| src/hooks/useFidelityCourtesy.ts | Buscar settings da unit em vez de business_settings |
+| src/components/agenda/AppointmentDetailsModal.tsx | Buscar fidelidade da unit atual |
+| src/components/clients/ClientDetailsModal.tsx | Buscar fidelidade da unit atual |
+| src/pages/Configuracoes.tsx | Remover aba Fidelidade |
 
 ---
 
-## Resultado Visual Esperado
+## Fluxo de Uso
 
-- Todos os textareas sempre editaveis
-- Mensagens com texto padrao ao carregar pela primeira vez
-- Bloco cinza abaixo do textarea de Lembrete mostrando a parte fixa (CONFIRMADO/CANCELAR) que sera adicionada automaticamente
+1. Usuario vai em **Unidades**
+2. Clica no icone de **engrenagem** no card da unidade
+3. Abre modal de **Configuracoes da Unidade**
+4. Ativa **Programa de Fidelidade** e define regras
+5. Salva - configuracoes aplicam apenas para aquela unidade
+6. Cada unidade pode ter regras diferentes
+
+---
+
+## Beneficios
+
+- Unidade A pode ter 5 cortes para cortesia
+- Unidade B pode ter 10 cortes para cortesia
+- Unidade C pode ter fidelidade desativado
+- Icone de configuracao sempre visivel, mais intuitivo
 
