@@ -300,10 +300,13 @@ serve(async (req) => {
 
         const state = statusData.state || statusData.instance?.state || 'unknown';
 
-        // Auto-cleanup: if state is 'close' OR stale instance in 'connecting' state, delete the orphaned instance
-        if (state === 'close' || (state === 'connecting' && isStaleInstance)) {
+        // Auto-cleanup: ONLY delete if instance is stale (>5 minutes old) AND in 'close' or 'connecting' state
+        // The 'close' state can briefly appear during connection, so we need to check timestamp
+        const shouldCleanup = isStaleInstance && (state === 'close' || state === 'connecting');
+        
+        if (shouldCleanup) {
           console.log(`Instance needs cleanup: state=${state}, isStale=${isStaleInstance}`);
-          console.log('Instance is in close state (orphaned), cleaning up...');
+          console.log('Stale instance detected, cleaning up...');
           
           // Delete instance from Evolution API
           try {
@@ -316,9 +319,9 @@ serve(async (req) => {
                 },
               }
             );
-            console.log('Orphaned instance deleted from Evolution API');
+            console.log('Stale instance deleted from Evolution API');
           } catch (e) {
-            console.log('Delete orphaned instance error (non-critical):', e);
+            console.log('Delete stale instance error (non-critical):', e);
           }
 
           // Clear database including profile data
@@ -338,6 +341,20 @@ serve(async (req) => {
             state: 'disconnected',
             cleaned: true,
             message: 'Instância expirada foi removida automaticamente'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // For 'close' state on recent instances, just return the state without cleaning up
+        // This allows the user to refresh the QR code or retry the connection
+        if (state === 'close') {
+          console.log('Instance is in close state but still recent, not cleaning up');
+          return new Response(JSON.stringify({
+            success: true,
+            state: 'close',
+            instanceName: unit.evolution_instance_name,
+            message: 'Sessão encerrada. Escaneie o QR Code novamente para reconectar.'
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });

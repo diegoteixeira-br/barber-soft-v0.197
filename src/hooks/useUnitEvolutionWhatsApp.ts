@@ -105,7 +105,23 @@ export function useUnitEvolutionWhatsApp(unit: Unit | null): UseUnitEvolutionWha
               console.error('Auto-refresh QR failed:', e);
             }
           }
-        } else if (state === 'close' || state === 'disconnected') {
+        } else if (state === 'close') {
+          // 'close' state means session ended but instance still exists
+          // Keep as 'connecting' and auto-refresh QR code to allow reconnection
+          setConnectionState("connecting");
+          console.log('State is close, auto-refreshing QR code for reconnection...');
+          try {
+            const { data: qrData } = await supabase.functions.invoke('evolution-whatsapp', {
+              body: { action: 'refresh-qr', unit_id: unit.id },
+            });
+            if (qrData?.success && qrData.qrCode) {
+              setQrCode(qrData.qrCode);
+              setPairingCode(qrData.pairingCode);
+            }
+          } catch (e) {
+            console.error('Auto-refresh QR on close failed:', e);
+          }
+        } else if (state === 'disconnected' || data.cleaned) {
           setConnectionState("disconnected");
           setQrCode(null);
           setPairingCode(null);
