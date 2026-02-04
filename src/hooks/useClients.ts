@@ -200,11 +200,40 @@ export function useClients(filterOrOptions: ClientFilter | UseClientsOptions = "
     },
   });
 
+  const toggleMarketingOptOut = useMutation({
+    mutationFn: async ({ id, optOut }: { id: string; optOut: boolean }) => {
+      const { error } = await supabase
+        .from("clients")
+        .update({
+          marketing_opt_out: optOut,
+          opted_out_at: optOut ? new Date().toISOString() : null,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_, { optOut }) => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast({
+        title: optOut
+          ? "Cliente bloqueado do marketing"
+          : "Cliente desbloqueado do marketing",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar cliente",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     clients: query.data || [],
     isLoading: query.isLoading,
     createClient,
     updateClient,
     deleteClient,
+    toggleMarketingOptOut,
   };
 }

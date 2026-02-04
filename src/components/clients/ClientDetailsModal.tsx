@@ -3,8 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, Calendar, Clock, Edit2, Building2, BellOff, Users, FileText, Gift, Sparkles } from "lucide-react";
-import { Client } from "@/hooks/useClients";
+import { Phone, Calendar, Clock, Edit2, Building2, BellOff, Bell, Users, FileText, Gift, Sparkles, Loader2 } from "lucide-react";
+import { Client, useClients } from "@/hooks/useClients";
 import { DependentsList } from "./DependentsList";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -18,6 +18,7 @@ interface ClientDetailsModalProps {
   client: Client | null;
   onEdit: (client: Client) => void;
   showUnit?: boolean;
+  onOptOutToggle?: () => void;
 }
 
 const tagColors: Record<string, string> = {
@@ -36,11 +37,16 @@ export function ClientDetailsModal({
 }: ClientDetailsModalProps) {
   const { currentUnitId } = useCurrentUnit();
   const { units } = useUnits();
+  const { toggleMarketingOptOut } = useClients();
   const currentUnit = units.find(u => u.id === currentUnitId);
   const fidelityEnabled = currentUnit?.fidelity_program_enabled ?? false;
   const fidelityThreshold = currentUnit?.fidelity_cuts_threshold ?? 10;
 
   if (!client) return null;
+
+  const handleToggleOptOut = () => {
+    toggleMarketingOptOut.mutate({ id: client.id, optOut: !client.marketing_opt_out });
+  };
 
   const initials = client.name
     .split(" ")
@@ -127,6 +133,24 @@ export function ClientDetailsModal({
                 </Badge>
               ))}
             </div>
+
+            {/* Marketing Opt-Out Toggle */}
+            <Button
+              variant={client.marketing_opt_out ? "default" : "outline"}
+              size="sm"
+              onClick={handleToggleOptOut}
+              disabled={toggleMarketingOptOut.isPending}
+              className="mt-3 w-full"
+            >
+              {toggleMarketingOptOut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : client.marketing_opt_out ? (
+                <Bell className="h-4 w-4 mr-2" />
+              ) : (
+                <BellOff className="h-4 w-4 mr-2" />
+              )}
+              {client.marketing_opt_out ? "Desbloquear Marketing" : "Bloquear Marketing"}
+            </Button>
           </div>
         </div>
 

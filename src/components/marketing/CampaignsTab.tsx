@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Send, Users, Cake, UserX, Search, CheckSquare, Square, Building2, Settings, Save, Scissors, Loader2, ImagePlus, X } from "lucide-react";
+import { Send, Users, Cake, UserX, Search, CheckSquare, Square, Building2, Settings, Save, Scissors, Loader2, ImagePlus, X, BellOff } from "lucide-react";
 import { MessageTemplatesModal } from "./MessageTemplatesModal";
 import { TemplateSelector } from "./TemplateSelector";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
@@ -32,6 +32,7 @@ const filterOptions = [
   { value: "all", label: "Todos os Clientes", icon: Users },
   { value: "birthday_month", label: "Aniversariantes do Mês", icon: Cake },
   { value: "inactive", label: "Sumidos (30+ dias)", icon: UserX },
+  { value: "opted_out", label: "Bloqueados (SAIR)", icon: BellOff },
 ];
 
 export function CampaignsTab() {
@@ -57,7 +58,13 @@ export function CampaignsTab() {
   });
   const { barbers, isLoading: barbersLoading } = useBarbers(unitFilter === "all" ? null : unitFilter);
 
-  const filteredClients = clients.filter((client) =>
+  // Filter out opted-out clients unless we're specifically viewing them
+  const blockedCount = clients.filter((c) => c.marketing_opt_out).length;
+  const availableClients = filter === "opted_out" 
+    ? clients 
+    : clients.filter((client) => !client.marketing_opt_out);
+  
+  const filteredClients = availableClients.filter((client) =>
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.phone.includes(searchTerm)
   );
@@ -381,10 +388,21 @@ export function CampaignsTab() {
             </Tabs>
             <div className="flex items-center justify-between">
               <CardDescription>
-                {currentSelectedSize > 0 
-                  ? `${currentSelectedSize} de ${currentListLength} selecionados`
-                  : `${currentListLength} encontrado(s)`
-                }
+                {recipientType === "clients" && filter !== "opted_out" && blockedCount > 0 ? (
+                  <span className="flex items-center gap-2">
+                    {currentSelectedSize > 0 
+                      ? `${currentSelectedSize} de ${currentListLength} selecionados`
+                      : `${currentListLength} disponíveis`}
+                    <span className="text-destructive flex items-center gap-1">
+                      <BellOff className="h-3 w-3" />
+                      {blockedCount} bloqueado(s)
+                    </span>
+                  </span>
+                ) : (
+                  currentSelectedSize > 0 
+                    ? `${currentSelectedSize} de ${currentListLength} selecionados`
+                    : `${currentListLength} encontrado(s)`
+                )}
               </CardDescription>
               <Button variant="outline" size="sm" onClick={selectAll}>
                 {currentSelectedSize === currentListLength && currentListLength > 0 ? (
@@ -420,9 +438,17 @@ export function CampaignsTab() {
                           : "border-border hover:bg-muted/50"
                       }`}
                     >
-                      <Checkbox checked={selectedIds.has(client.id)} />
+                      <Checkbox checked={selectedIds.has(client.id)} disabled={client.marketing_opt_out && filter === "opted_out"} />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{client.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{client.name}</p>
+                          {client.marketing_opt_out && (
+                            <Badge variant="outline" className="bg-destructive/20 text-destructive border-destructive/30 gap-1 text-[10px] py-0">
+                              <BellOff className="h-2.5 w-2.5" />
+                              Bloqueado
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">{client.phone}</p>
                         {showUnitBadge && client.unit_name && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
