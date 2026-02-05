@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.reset-deletion-password]
 verify_jwt = false
+
+[functions.contact-form]
+verify_jwt = false
