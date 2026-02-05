@@ -13,7 +13,7 @@ export const SEOHead = ({
   title, 
   description, 
   canonical,
-  ogImage = '/og-image-v2.png',
+  ogImage = '/og-social-final.png',
   ogType = 'website',
   schema
 }: SEOHeadProps) => {
